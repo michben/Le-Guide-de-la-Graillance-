@@ -3,10 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Allowlist of admin users, managed by hand in the Firebase console:
-    // Firestore > admins collection > create a document whose ID is the admin's
-    // Firebase Auth uid (the console's login screen shows it once denied access).
-    // The document's content doesn't matter, only its existence/id.
     function isAdmin() {
       return request.auth != null &&
         exists(/databases/$(database)/documents/admins/$(request.auth.uid));
@@ -14,13 +10,9 @@ service cloud.firestore {
 
     match /admins/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if false; // managed by hand in the console, never from a client
+      allow write: if false;
     }
 
-    // Spots (restaurants). Admins (see isAdmin() above) have full CRUD from the
-    // admin console. Regular signed-in grailleurs can read the catalogue and post
-    // a review, but can only ever touch the reviews/rating/reviewCount fields —
-    // name, address, badges, etc. stay admin-only.
     match /spots/{spotId} {
       allow read: if request.auth != null;
 
