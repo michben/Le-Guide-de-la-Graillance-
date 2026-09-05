@@ -90,9 +90,10 @@ config Firebase.
 1. Dans la console Firebase, va dans **Firestore Database** et crée une base (mode production).
 2. Colle le contenu de `firestore.rules` (racine du repo) dans l'onglet **Règles** de Firestore,
    puis publie. Ces règles : autorisent la lecture de `spots/*` à tout utilisateur connecté,
-   n'autorisent la mise à jour que des champs `reviews`/`rating`/`reviewCount` (impossible de
-   modifier le nom, l'adresse ou les badges d'un spot depuis l'app), et interdisent la création/
-   suppression de spots depuis le client (réservé au script d'admin ci-dessous).
+   n'autorisent la mise à jour que des champs `reviews`/`rating`/`reviewCount` pour un utilisateur
+   normal (impossible de modifier le nom, l'adresse ou les badges d'un spot depuis l'app mobile),
+   et réservent la création/suppression/modification complète d'un spot aux comptes listés dans la
+   collection `admins` — utilisée par la console d'admin ci-dessous.
 3. Génère une clé de compte de service : **Paramètres du projet > Comptes de service > Générer une
    nouvelle clé privée**. Garde ce fichier JSON en dehors du repo (ne jamais le commiter).
 4. Charge les spots de démo dans Firestore :
@@ -105,6 +106,42 @@ config Firebase.
    vérité et écrit un document par spot dans la collection `spots`.
 5. Recharge l'app connectée : la carte/liste et le détail d'un spot lisent maintenant Firestore en
    temps réel, et "Publier mon avis" écrit dans Firestore au lieu de l'état local.
+
+## Console d'administration (`admin/`)
+
+Petite app web séparée (React + Vite, pas Expo) pour saisir les restaurants à la main : formulaire
+complet (nom, catégorie, adresse, horaires, spécialités, prix, latitude/longitude, badges Halal/
+AVS/Achahada), liste filtrable par catégorie et par badge, édition et suppression. Elle lit/écrit
+directement dans le même Firestore que l'app mobile (même projet Firebase = même base).
+
+### Lancer en local
+
+```bash
+cd admin
+npm install
+cp .env.example .env.local   # mêmes valeurs EXPO_PUBLIC_FIREBASE_* que la racine, préfixées VITE_
+npm run dev
+```
+
+### Devenir admin (première connexion)
+
+1. Ouvre la console, clique **Créer un compte** (email + mot de passe) — ou connecte-toi avec un
+   compte existant créé depuis l'app mobile.
+2. Tant que ton compte n'est pas dans la collection `admins`, la console affiche **Accès refusé**
+   et te montre ton `uid`.
+3. Dans la console Firebase, **Firestore Database > admins**, crée un document dont l'ID est
+   exactement cet `uid` (contenu peu importe, ex. `{ "email": "toi@exemple.com" }`).
+4. Recharge la page admin : tu as maintenant accès au formulaire et à la liste.
+
+C'est un allowlist volontairement géré à la main dans la console (pas d'auto-promotion) pour que
+n'importe quel compte créé dans l'app mobile ne puisse pas s'auto-nommer admin.
+
+### Déployer sur Render
+
+Static site pointant sur ce repo :
+- **Build command** : `cd admin && npm install && npm run build`
+- **Publish directory** : `admin/dist`
+- **Variables d'environnement** : les 6 `VITE_FIREBASE_*` (mêmes valeurs que `.env.local`).
 
 ## Lancer le projet
 

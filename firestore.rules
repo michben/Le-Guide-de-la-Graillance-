@@ -3,17 +3,33 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Spots (restaurants) are seeded by an admin script (Admin SDK bypasses these rules).
-    // Any signed-in grailleur can read the catalogue and post a review, but cannot touch
-    // anything else on the document (name, address, badges, etc. stay admin-only).
+    // Allowlist of admin users, managed by hand in the Firebase console:
+    // Firestore > admins collection > create a document whose ID is the admin's
+    // Firebase Auth uid (the console's login screen shows it once denied access).
+    // The document's content doesn't matter, only its existence/id.
+    function isAdmin() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    match /admins/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false; // managed by hand in the console, never from a client
+    }
+
+    // Spots (restaurants). Admins (see isAdmin() above) have full CRUD from the
+    // admin console. Regular signed-in grailleurs can read the catalogue and post
+    // a review, but can only ever touch the reviews/rating/reviewCount fields —
+    // name, address, badges, etc. stay admin-only.
     match /spots/{spotId} {
       allow read: if request.auth != null;
 
-      allow update: if request.auth != null
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['reviews', 'rating', 'reviewCount']);
+      allow create, delete: if isAdmin();
 
-      allow create, delete: if false;
+      allow update: if isAdmin()
+        || (request.auth != null
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['reviews', 'rating', 'reviewCount']));
     }
   }
 }
