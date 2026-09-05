@@ -9,6 +9,7 @@ import {
   signUpWithEmail,
   User,
 } from '../firebase/auth';
+import { addReviewToFirestore, subscribeToSpots } from '../firebase/firestore';
 
 function rankForCount(count: number): UserRank {
   if (count >= 10) return 'Premium';
@@ -29,7 +30,9 @@ interface AppContextValue {
   selectedCategory: string | null;
   setSelectedCategory: (cat: string | null) => void;
   spots: Spot[];
-  addReview: (spotId: string, review: Omit<Review, 'id' | 'date' | 'authorRank'>) => void;
+  spotsLoading: boolean;
+  spotsError: string | null;
+  addReview: (spotId: string, review: Omit<Review, 'id' | 'date' | 'authorRank'>) => Promise<void>;
   user: CurrentUser;
   isPremium: boolean;
   setPremium: (value: boolean) => void;
@@ -43,7 +46,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isDemoLoggedIn, setIsDemoLoggedIn] = useState(false);
   const [location, setLocation] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [spots, setSpots] = useState<Spot[]>(SPOTS);
+  const [spots, setSpots] = useState<Spot[]>(isFirebaseConfigured ? [] : SPOTS);
+  const [spotsLoading, setSpotsLoading] = useState(isFirebaseConfigured);
+  const [spotsError, setSpotsError] = useState<string | null>(null);
   const [reviewsPosted, setReviewsPosted] = useState(2);
   const [isPremium, setIsPremium] = useState(false);
 
@@ -56,6 +61,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const isLoggedIn = isFirebaseConfigured ? Boolean(firebaseUser) : isDemoLoggedIn;
+
+  useEffect(() => {
+    if (!isFirebaseConfigured || !isLoggedIn) return;
+    setSpotsLoading(true);
+    const unsubscribe = subscribeToSpots(
+      (data) => {
+        setSpots(data);
+        setSpotsLoading(false);
+        setSpotsError(null);
+      },
+      (error) => {
+        setSpotsError(error.message);
+        setSpotsLoading(false);
+      }
+    );
+    return unsubscribe;
+  }, [isLoggedIn]);
+
   const rank = isPremium ? 'Premium' : rankForCount(reviewsPosted);
 
   const user: CurrentUser = useMemo(
@@ -68,29 +91,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [firebaseUser, reviewsPosted, rank, isPremium]
   );
 
-  const addReview: AppContextValue['addReview'] = (spotId, review) => {
-    setSpots((prev) =>
-      prev.map((spot) =>
-        spot.id === spotId
-          ? {
-              ...spot,
-              reviewCount: spot.reviewCount + 1,
-              rating: Number(
-                ((spot.rating * spot.reviewCount + review.rating) / (spot.reviewCount + 1)).toFixed(1)
-              ),
-              reviews: [
-                {
-                  ...review,
-                  id: `${spotId}-${Date.now()}`,
-                  date: new Date().toISOString().slice(0, 10),
-                  authorRank: rank,
-                },
-                ...spot.reviews,
-              ],
-            }
-          : spot
-      )
-    );
+  const addReview: AppContextValue['addReview'] = async (spotId, review) => {
+    const reviewWithRank = { ...review, authorRank: rank };
+
+    if (isFirebaseConfigured) {
+      await addReviewToFirestore(spotId, reviewWithRank);
+      // spots state updates via the onSnapshot listener once Firestore confirms the write.
+    } else {
+      setSpots((prev) =>
+        prev.map((spot) =>
+          spot.id === spotId
+            ? {
+                ...spot,
+                reviewCount: spot.reviewCount + 1,
+                rating: Number(
+                  ((spot.rating * spot.reviewCount + review.rating) / (spot.reviewCount + 1)).toFixed(1)
+                ),
+                reviews: [
+                  {
+                    ...reviewWithRank,
+                    id: `${spotId}-${Date.now()}`,
+                    date: new Date().toISOString().slice(0, 10),
+                  },
+                  ...spot.reviews,
+                ],
+              }
+            : spot
+        )
+      );
+    }
     setReviewsPosted((n) => n + 1);
   };
 
@@ -116,6 +145,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     selectedCategory,
     setSelectedCategory,
     spots,
+    spotsLoading,
+    spotsError,
     addReview,
     user,
     isPremium,

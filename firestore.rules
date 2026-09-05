@@ -1,0 +1,19 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Spots (restaurants) are seeded by an admin script (Admin SDK bypasses these rules).
+    // Any signed-in grailleur can read the catalogue and post a review, but cannot touch
+    // anything else on the document (name, address, badges, etc. stay admin-only).
+    match /spots/{spotId} {
+      allow read: if request.auth != null;
+
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['reviews', 'rating', 'reviewCount']);
+
+      allow create, delete: if false;
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -14,16 +15,18 @@ export const isFirebaseConfigured = Boolean(firebaseConfig.apiKey && firebaseCon
 
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
+let db: Firestore | undefined;
 
 if (isFirebaseConfigured) {
   app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
   auth = getAuth(app);
+  db = getFirestore(app);
 } else if (__DEV__) {
   console.warn(
     '[Firebase] Config manquante (EXPO_PUBLIC_FIREBASE_*). ' +
-      "L'app tourne en mode démo local sans authentification réelle. " +
-      'Copie .env.example vers .env et renseigne ton projet Firebase pour activer l\'auth.'
+      "L'app tourne en mode démo local avec des données mockées. " +
+      'Copie .env.example vers .env et renseigne ton projet Firebase pour activer l\'auth et Firestore.'
   );
 }
 
-export { app, auth };
+export { app, auth, db };

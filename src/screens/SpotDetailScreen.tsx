@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useApp } from '../context/AppContext';
 import { BadgePill } from '../components/BadgePill';
@@ -12,14 +12,18 @@ type Props = NativeStackScreenProps<RootStackParamList, 'SpotDetail'>;
 
 export default function SpotDetailScreen({ route }: Props) {
   const { spotId } = route.params;
-  const { spots, addReview, user } = useApp();
+  const { spots, spotsLoading, addReview, user } = useApp();
   const spot = spots.find((s) => s.id === spotId);
   const [modalVisible, setModalVisible] = useState(false);
 
   if (!spot) {
     return (
-      <View style={styles.screen}>
-        <Text>Spot introuvable.</Text>
+      <View style={[styles.screen, styles.centerState]}>
+        {spotsLoading ? (
+          <ActivityIndicator size="large" color={colors.primary} />
+        ) : (
+          <Text style={styles.empty}>Spot introuvable.</Text>
+        )}
       </View>
     );
   }
@@ -72,8 +76,8 @@ export default function SpotDetailScreen({ route }: Props) {
       <ReviewModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
-        onSubmit={(review) => {
-          addReview(spot.id, review);
+        onSubmit={async (review) => {
+          await addReview(spot.id, review);
           setModalVisible(false);
         }}
         userName={user.name}
@@ -99,19 +103,22 @@ function ReviewModal({
 }: {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (review: { author: string; rating: number; comment: string; ticketPhoto: boolean; dishPhoto: boolean }) => void;
+  onSubmit: (review: { author: string; rating: number; comment: string; ticketPhoto: boolean; dishPhoto: boolean }) => Promise<void>;
   userName: string;
 }) {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [ticketPhoto, setTicketPhoto] = useState(false);
   const [dishPhoto, setDishPhoto] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const reset = () => {
     setRating(5);
     setComment('');
     setTicketPhoto(false);
     setDishPhoto(false);
+    setError(null);
   };
 
   const pickPhoto = async (which: 'ticket' | 'dish') => {
@@ -154,12 +161,14 @@ function ReviewModal({
 
           <View style={styles.photoRow}>
             <Pressable
+              testID="photo-ticket-btn"
               style={[styles.photoBtn, ticketPhoto && styles.photoBtnDone]}
               onPress={() => pickPhoto('ticket')}
             >
               <Text style={styles.photoBtnText}>{ticketPhoto ? '✅ Ticket ajouté' : '🧾 Photo du ticket'}</Text>
             </Pressable>
             <Pressable
+              testID="photo-dish-btn"
               style={[styles.photoBtn, dishPhoto && styles.photoBtnDone]}
               onPress={() => pickPhoto('dish')}
             >
@@ -167,15 +176,29 @@ function ReviewModal({
             </Pressable>
           </View>
 
+          {error && <Text style={styles.modalError}>{error}</Text>}
+
           <Pressable
-            style={[styles.submitBtn, !canSubmit && styles.submitBtnDisabled]}
-            disabled={!canSubmit}
-            onPress={() => {
-              onSubmit({ author: userName, rating, comment: comment.trim(), ticketPhoto, dishPhoto });
-              reset();
+            style={[styles.submitBtn, (!canSubmit || submitting) && styles.submitBtnDisabled]}
+            disabled={!canSubmit || submitting}
+            onPress={async () => {
+              setError(null);
+              setSubmitting(true);
+              try {
+                await onSubmit({ author: userName, rating, comment: comment.trim(), ticketPhoto, dishPhoto });
+                reset();
+              } catch (e) {
+                setError("Impossible de publier l'avis, réessaie.");
+              } finally {
+                setSubmitting(false);
+              }
             }}
           >
-            <Text style={styles.submitBtnText}>Publier mon avis</Text>
+            {submitting ? (
+              <ActivityIndicator color={colors.white} />
+            ) : (
+              <Text style={styles.submitBtnText}>Publier mon avis</Text>
+            )}
           </Pressable>
           <Pressable
             onPress={() => {
@@ -193,6 +216,7 @@ function ReviewModal({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
+  centerState: { alignItems: 'center', justifyContent: 'center' },
   header: { padding: spacing.lg, paddingBottom: spacing.sm },
   name: { ...typography.h1, color: colors.text, marginBottom: spacing.sm },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: spacing.xs },
@@ -245,6 +269,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: { ...typography.h2, color: colors.text },
   modalSubtitle: { ...typography.small, color: colors.textLight, marginTop: 4, marginBottom: spacing.md },
+  modalError: { color: colors.primaryDark, fontSize: 13, fontWeight: '600', marginBottom: spacing.sm },
   starsRow: { flexDirection: 'row', gap: 6, marginBottom: spacing.md },
   star: { fontSize: 28 },
   commentInput: {

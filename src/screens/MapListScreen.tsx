@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../context/AppContext';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { SpotCard } from '../components/SpotCard';
@@ -9,7 +9,7 @@ import type { RootStackParamList } from '../navigation/types';
 type Props = NativeStackScreenProps<RootStackParamList, 'MapList'>;
 
 export default function MapListScreen({ navigation }: Props) {
-  const { spots, selectedCategory, setSelectedCategory, location } = useApp();
+  const { spots, spotsLoading, spotsError, selectedCategory, setSelectedCategory, location } = useApp();
   const [view, setView] = useState<'map' | 'list'>('map');
 
   const filtered = useMemo(
@@ -60,7 +60,18 @@ export default function MapListScreen({ navigation }: Props) {
         </Pressable>
       </View>
 
-      {view === 'map' ? (
+      {spotsLoading ? (
+        <View style={styles.centerState}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.centerStateText}>Recherche des spots...</Text>
+        </View>
+      ) : spotsError ? (
+        <View style={styles.centerState}>
+          <Text style={styles.centerStateText}>
+            Impossible de charger les spots ({spotsError}).
+          </Text>
+        </View>
+      ) : view === 'map' ? (
         <View style={styles.mapWrap}>
           <View style={styles.map}>
             {filtered.map((spot) => {
@@ -139,6 +150,8 @@ const styles = StyleSheet.create({
   toggleBtnActive: { backgroundColor: colors.primary },
   toggleText: { fontWeight: '700', color: colors.textLight, fontSize: 13 },
   toggleTextActive: { color: colors.white },
+  centerState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.sm },
+  centerStateText: { ...typography.body, color: colors.textLight, textAlign: 'center' },
   mapWrap: { flex: 1 },
   map: {
     flex: 1,

@@ -22,13 +22,16 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "firebase-admin": "^14.3.0",
+    "tsx": "^4.23.13",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "seed:firestore": "tsx scripts/seed-firestore.ts"
   },
   "private": true
 }
