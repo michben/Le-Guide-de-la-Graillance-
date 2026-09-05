@@ -5,7 +5,7 @@ import { colors, radius, spacing, typography } from '../theme/theme';
 import { RankBadge } from './RankBadge';
 
 export function HeaderProfile() {
-  const { user, setPremium, isPremium } = useApp();
+  const { user, setPremium, isPremium, logout } = useApp();
   const [visible, setVisible] = useState(false);
 
   return (
@@ -32,6 +32,14 @@ export function HeaderProfile() {
             ) : (
               <Text style={styles.premiumActive}>👑 Tu es déjà Premium, merci grailleur !</Text>
             )}
+            <Pressable
+              onPress={() => {
+                setVisible(false);
+                logout();
+              }}
+            >
+              <Text style={styles.logout}>Se déconnecter</Text>
+            </Pressable>
             <Pressable onPress={() => setVisible(false)}>
               <Text style={styles.close}>Fermer</Text>
             </Pressable>
@@ -67,5 +75,6 @@ const styles = StyleSheet.create({
   premiumBtn: { backgroundColor: colors.premium, borderRadius: radius.pill, paddingVertical: 10, alignItems: 'center' },
   premiumBtnText: { fontWeight: '800', color: colors.secondary },
   premiumActive: { color: colors.success, fontWeight: '700', marginTop: spacing.sm },
-  close: { color: colors.primary, fontWeight: '700', marginTop: spacing.md },
+  logout: { color: colors.primaryDark, fontWeight: '700', marginTop: spacing.md },
+  close: { color: colors.textLight, fontWeight: '600', marginTop: spacing.sm },
 });

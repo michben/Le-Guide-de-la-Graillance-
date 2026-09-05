@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -9,12 +10,44 @@ import {
   View,
 } from 'react-native';
 import { useApp } from '../context/AppContext';
+import { authErrorMessage } from '../firebase/auth';
 import { colors, radius, spacing, typography } from '../theme/theme';
 
+type Mode = 'signIn' | 'signUp';
+
 export default function LoginScreen() {
-  const { login } = useApp();
+  const { signIn, signUp, demoLogin, isFirebaseConfigured } = useApp();
   const [showWelcome, setShowWelcome] = useState(true);
+  const [mode, setMode] = useState<Mode>('signIn');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    setError(null);
+    if (!isFirebaseConfigured) {
+      demoLogin();
+      return;
+    }
+    if (!email.trim() || !password.trim() || (mode === 'signUp' && !name.trim())) {
+      setError('Remplis tous les champs.');
+      return;
+    }
+    setLoading(true);
+    try {
+      if (mode === 'signUp') {
+        await signUp(email.trim(), password, name.trim());
+      } else {
+        await signIn(email.trim(), password);
+      }
+    } catch (e) {
+      setError(authErrorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -40,16 +73,82 @@ export default function LoginScreen() {
         </View>
       ) : (
         <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="Email ou téléphone"
-            placeholderTextColor={colors.muted}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-          />
-          <Pressable style={styles.primaryBtn} onPress={login}>
-            <Text style={styles.primaryBtnText}>Se connecter</Text>
+          {!isFirebaseConfigured && (
+            <View style={styles.demoBanner}>
+              <Text style={styles.demoBannerText}>
+                Mode démo : Firebase n'est pas encore configuré (voir README). Appuie sur
+                continuer pour explorer l'appli sans compte réel.
+              </Text>
+            </View>
+          )}
+
+          {isFirebaseConfigured && (
+            <View style={styles.modeRow}>
+              <Pressable
+                style={[styles.modeBtn, mode === 'signIn' && styles.modeBtnActive]}
+                onPress={() => setMode('signIn')}
+              >
+                <Text style={[styles.modeText, mode === 'signIn' && styles.modeTextActive]}>
+                  Connexion
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modeBtn, mode === 'signUp' && styles.modeBtnActive]}
+                onPress={() => setMode('signUp')}
+              >
+                <Text style={[styles.modeText, mode === 'signUp' && styles.modeTextActive]}>
+                  Inscription
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
+          {isFirebaseConfigured && mode === 'signUp' && (
+            <TextInput
+              style={styles.input}
+              placeholder="Ton pseudo de grailleur"
+              placeholderTextColor={colors.muted}
+              value={name}
+              onChangeText={setName}
+            />
+          )}
+
+          {isFirebaseConfigured && (
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
+                placeholderTextColor={colors.muted}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Mot de passe"
+                placeholderTextColor={colors.muted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            </>
+          )}
+
+          {error && <Text style={styles.error}>{error}</Text>}
+
+          <Pressable style={styles.primaryBtn} onPress={submit} disabled={loading}>
+            {loading ? (
+              <ActivityIndicator color={colors.white} />
+            ) : (
+              <Text style={styles.primaryBtnText}>
+                {!isFirebaseConfigured
+                  ? 'Continuer en mode démo'
+                  : mode === 'signUp'
+                  ? "S'inscrire"
+                  : 'Se connecter'}
+              </Text>
+            )}
           </Pressable>
 
           <View style={styles.dividerRow}>
@@ -59,17 +158,15 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.socialRow}>
-            <Pressable style={[styles.socialBtn, { backgroundColor: '#1877F2' }]} onPress={login}>
+            <View style={[styles.socialBtn, styles.socialBtnDisabled, { backgroundColor: '#1877F2' }]}>
               <Text style={styles.socialBtnText}>Facebook</Text>
-            </Pressable>
-            <Pressable style={[styles.socialBtn, { backgroundColor: '#111' }]} onPress={login}>
+              <Text style={styles.soonTag}>Bientôt</Text>
+            </View>
+            <View style={[styles.socialBtn, styles.socialBtnDisabled, { backgroundColor: '#111' }]}>
               <Text style={styles.socialBtnText}>X</Text>
-            </Pressable>
+              <Text style={styles.soonTag}>Bientôt</Text>
+            </View>
           </View>
-
-          <Pressable onPress={login}>
-            <Text style={styles.skip}>Pas de compte ? Inscris-toi</Text>
-          </Pressable>
         </View>
       )}
     </KeyboardAvoidingView>
@@ -92,6 +189,26 @@ const styles = StyleSheet.create({
   welcomeTitle: { ...typography.h2, color: colors.text, marginBottom: spacing.sm },
   welcomeBody: { ...typography.body, color: colors.textLight, marginBottom: spacing.lg, lineHeight: 21 },
   form: { gap: spacing.md },
+  demoBanner: {
+    backgroundColor: `${colors.accent}22`,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  demoBannerText: { fontSize: 12, color: colors.text, lineHeight: 17 },
+  modeRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: radius.pill,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modeBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: radius.pill },
+  modeBtnActive: { backgroundColor: colors.primary },
+  modeText: { fontWeight: '700', color: colors.textLight, fontSize: 13 },
+  modeTextActive: { color: colors.white },
   input: {
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -102,6 +219,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.text,
   },
+  error: { color: colors.primaryDark, fontSize: 13, fontWeight: '600' },
   primaryBtn: {
     backgroundColor: colors.primary,
     borderRadius: radius.md,
@@ -114,6 +232,7 @@ const styles = StyleSheet.create({
   dividerText: { marginHorizontal: spacing.sm, color: colors.muted, fontSize: 12 },
   socialRow: { flexDirection: 'row', gap: spacing.sm },
   socialBtn: { flex: 1, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center' },
+  socialBtnDisabled: { opacity: 0.5 },
   socialBtnText: { color: colors.white, fontWeight: '700' },
-  skip: { textAlign: 'center', color: colors.primary, fontWeight: '600', marginTop: spacing.xs },
+  soonTag: { color: colors.white, fontSize: 10, marginTop: 2 },
 });
