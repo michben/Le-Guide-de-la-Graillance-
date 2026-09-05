@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -9,28 +9,63 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import * as Google from 'expo-auth-session/providers/google';
+import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 import { useApp } from '../context/AppContext';
-import { authErrorMessage } from '../firebase/auth';
+import {
+  ConfirmationResult,
+  authErrorMessage,
+  confirmPhoneCode,
+  sendPhoneVerificationCode,
+  signInWithGoogleIdToken,
+  signInWithGooglePopup,
+} from '../firebase/auth';
+import { firebaseConfig } from '../firebase/config';
 import { colors, radius, spacing, typography } from '../theme/theme';
 
 type Mode = 'signIn' | 'signUp';
+type AuthMethod = 'email' | 'phone';
 
 export default function LoginScreen() {
   const { signIn, signUp, demoLogin, isFirebaseConfigured } = useApp();
   const [showWelcome, setShowWelcome] = useState(true);
+  const [authMethod, setAuthMethod] = useState<AuthMethod>('email');
   const [mode, setMode] = useState<Mode>('signIn');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const submit = async () => {
-    setError(null);
-    if (!isFirebaseConfigured) {
-      demoLogin();
-      return;
+  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal>(null);
+  const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  // expo-auth-session throws synchronously if these are missing, even on platforms that
+  // never use them (web signs in via signInWithGooglePopup instead) — a placeholder keeps
+  // the hook from crashing the whole screen; promptGoogle() is only ever called on native,
+  // gated by googleWebClientId below, so the placeholder is never actually used to sign in.
+  const [googleRequest, googleResponse, promptGoogle] = Google.useIdTokenAuthRequest({
+    webClientId: googleWebClientId || 'not-configured',
+    iosClientId: googleWebClientId || 'not-configured',
+    androidClientId: googleWebClientId || 'not-configured',
+  });
+
+  useEffect(() => {
+    if (googleResponse?.type === 'success' && googleResponse.params.id_token) {
+      setLoading(true);
+      signInWithGoogleIdToken(googleResponse.params.id_token)
+        .catch((e) => setError(authErrorMessage(e)))
+        .finally(() => setLoading(false));
+    } else if (googleResponse?.type === 'error') {
+      setError('Connexion Google annulée ou refusée.');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [googleResponse]);
+
+  const submitEmail = async () => {
+    setError(null);
     if (!email.trim() || !password.trim() || (mode === 'signUp' && !name.trim())) {
       setError('Remplis tous les champs.');
       return;
@@ -49,11 +84,61 @@ export default function LoginScreen() {
     }
   };
 
+  const sendCode = async () => {
+    setError(null);
+    if (!phone.trim().startsWith('+')) {
+      setError('Format international requis, ex. +33612345678.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await sendPhoneVerificationCode(phone.trim(), recaptchaVerifier.current ?? undefined);
+      setConfirmation(result);
+    } catch (e) {
+      setError(authErrorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyCode = async () => {
+    if (!confirmation) return;
+    setError(null);
+    setLoading(true);
+    try {
+      await confirmPhoneCode(confirmation, code.trim());
+    } catch (e) {
+      setError(authErrorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const google = async () => {
+    setError(null);
+    try {
+      if (Platform.OS === 'web') {
+        setLoading(true);
+        await signInWithGooglePopup();
+      } else {
+        await promptGoogle();
+      }
+    } catch (e) {
+      setError(authErrorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      {isFirebaseConfigured && Platform.OS !== 'web' && (
+        <FirebaseRecaptchaVerifierModal ref={recaptchaVerifier} firebaseConfig={firebaseConfig} />
+      )}
+
       <View style={styles.hero}>
         <Text style={styles.logo}>🍔🔥</Text>
         <Text style={styles.title}>Le Guide de la Graillance</Text>
@@ -71,50 +156,75 @@ export default function LoginScreen() {
             <Text style={styles.primaryBtnText}>J'ai compris, on y va</Text>
           </Pressable>
         </View>
+      ) : !isFirebaseConfigured ? (
+        <View style={styles.form}>
+          <View style={styles.demoBanner}>
+            <Text style={styles.demoBannerText}>
+              Mode démo : Firebase n'est pas encore configuré (voir README). Appuie sur continuer
+              pour explorer l'appli sans compte réel.
+            </Text>
+          </View>
+          <Pressable style={styles.primaryBtn} onPress={demoLogin}>
+            <Text style={styles.primaryBtnText}>Continuer en mode démo</Text>
+          </Pressable>
+        </View>
       ) : (
         <View style={styles.form}>
-          {!isFirebaseConfigured && (
-            <View style={styles.demoBanner}>
-              <Text style={styles.demoBannerText}>
-                Mode démo : Firebase n'est pas encore configuré (voir README). Appuie sur
-                continuer pour explorer l'appli sans compte réel.
+          <View style={styles.modeRow}>
+            <Pressable
+              style={[styles.modeBtn, authMethod === 'email' && styles.modeBtnActive]}
+              onPress={() => {
+                setAuthMethod('email');
+                setError(null);
+              }}
+            >
+              <Text style={[styles.modeText, authMethod === 'email' && styles.modeTextActive]}>
+                Email
               </Text>
-            </View>
-          )}
+            </Pressable>
+            <Pressable
+              style={[styles.modeBtn, authMethod === 'phone' && styles.modeBtnActive]}
+              onPress={() => {
+                setAuthMethod('phone');
+                setError(null);
+              }}
+            >
+              <Text style={[styles.modeText, authMethod === 'phone' && styles.modeTextActive]}>
+                Téléphone
+              </Text>
+            </Pressable>
+          </View>
 
-          {isFirebaseConfigured && (
-            <View style={styles.modeRow}>
-              <Pressable
-                style={[styles.modeBtn, mode === 'signIn' && styles.modeBtnActive]}
-                onPress={() => setMode('signIn')}
-              >
-                <Text style={[styles.modeText, mode === 'signIn' && styles.modeTextActive]}>
-                  Connexion
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.modeBtn, mode === 'signUp' && styles.modeBtnActive]}
-                onPress={() => setMode('signUp')}
-              >
-                <Text style={[styles.modeText, mode === 'signUp' && styles.modeTextActive]}>
-                  Inscription
-                </Text>
-              </Pressable>
-            </View>
-          )}
-
-          {isFirebaseConfigured && mode === 'signUp' && (
-            <TextInput
-              style={styles.input}
-              placeholder="Ton pseudo de grailleur"
-              placeholderTextColor={colors.muted}
-              value={name}
-              onChangeText={setName}
-            />
-          )}
-
-          {isFirebaseConfigured && (
+          {authMethod === 'email' ? (
             <>
+              <View style={styles.modeRow}>
+                <Pressable
+                  style={[styles.modeBtn, mode === 'signIn' && styles.modeBtnActive]}
+                  onPress={() => setMode('signIn')}
+                >
+                  <Text style={[styles.modeText, mode === 'signIn' && styles.modeTextActive]}>
+                    Connexion
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.modeBtn, mode === 'signUp' && styles.modeBtnActive]}
+                  onPress={() => setMode('signUp')}
+                >
+                  <Text style={[styles.modeText, mode === 'signUp' && styles.modeTextActive]}>
+                    Inscription
+                  </Text>
+                </Pressable>
+              </View>
+
+              {mode === 'signUp' && (
+                <TextInput
+                  style={styles.input}
+                  placeholder="Ton pseudo de grailleur"
+                  placeholderTextColor={colors.muted}
+                  value={name}
+                  onChangeText={setName}
+                />
+              )}
               <TextInput
                 style={styles.input}
                 placeholder="Email"
@@ -132,24 +242,66 @@ export default function LoginScreen() {
                 onChangeText={setPassword}
                 secureTextEntry
               />
+
+              {error && <Text style={styles.error}>{error}</Text>}
+
+              <Pressable style={styles.primaryBtn} onPress={submitEmail} disabled={loading}>
+                {loading ? (
+                  <ActivityIndicator color={colors.white} />
+                ) : (
+                  <Text style={styles.primaryBtnText}>
+                    {mode === 'signUp' ? "S'inscrire" : 'Se connecter'}
+                  </Text>
+                )}
+              </Pressable>
+            </>
+          ) : !confirmation ? (
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder="Numéro (format international, +336...)"
+                placeholderTextColor={colors.muted}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                autoCapitalize="none"
+              />
+
+              {error && <Text style={styles.error}>{error}</Text>}
+
+              <Pressable style={styles.primaryBtn} onPress={sendCode} disabled={loading}>
+                {loading ? (
+                  <ActivityIndicator color={colors.white} />
+                ) : (
+                  <Text style={styles.primaryBtnText}>Envoyer le code</Text>
+                )}
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder="Code reçu par SMS"
+                placeholderTextColor={colors.muted}
+                value={code}
+                onChangeText={setCode}
+                keyboardType="number-pad"
+              />
+
+              {error && <Text style={styles.error}>{error}</Text>}
+
+              <Pressable style={styles.primaryBtn} onPress={verifyCode} disabled={loading}>
+                {loading ? (
+                  <ActivityIndicator color={colors.white} />
+                ) : (
+                  <Text style={styles.primaryBtnText}>Valider le code</Text>
+                )}
+              </Pressable>
+              <Pressable onPress={() => setConfirmation(null)}>
+                <Text style={styles.skip}>Changer de numéro</Text>
+              </Pressable>
             </>
           )}
-
-          {error && <Text style={styles.error}>{error}</Text>}
-
-          <Pressable style={styles.primaryBtn} onPress={submit} disabled={loading}>
-            {loading ? (
-              <ActivityIndicator color={colors.white} />
-            ) : (
-              <Text style={styles.primaryBtnText}>
-                {!isFirebaseConfigured
-                  ? 'Continuer en mode démo'
-                  : mode === 'signUp'
-                  ? "S'inscrire"
-                  : 'Se connecter'}
-              </Text>
-            )}
-          </Pressable>
 
           <View style={styles.dividerRow}>
             <View style={styles.divider} />
@@ -157,16 +309,22 @@ export default function LoginScreen() {
             <View style={styles.divider} />
           </View>
 
-          <View style={styles.socialRow}>
-            <View style={[styles.socialBtn, styles.socialBtnDisabled, { backgroundColor: '#1877F2' }]}>
-              <Text style={styles.socialBtnText}>Facebook</Text>
-              <Text style={styles.soonTag}>Bientôt</Text>
-            </View>
-            <View style={[styles.socialBtn, styles.socialBtnDisabled, { backgroundColor: '#111' }]}>
-              <Text style={styles.socialBtnText}>X</Text>
-              <Text style={styles.soonTag}>Bientôt</Text>
-            </View>
-          </View>
+          <Pressable
+            style={[
+              styles.googleBtn,
+              (loading || (Platform.OS !== 'web' && (!googleRequest || !googleWebClientId))) &&
+                styles.socialBtnDisabled,
+            ]}
+            onPress={google}
+            disabled={loading || (Platform.OS !== 'web' && (!googleRequest || !googleWebClientId))}
+          >
+            <Text style={styles.googleBtnText}>🔵 Continuer avec Google</Text>
+          </Pressable>
+          {Platform.OS !== 'web' && !googleWebClientId && (
+            <Text style={styles.error}>
+              Google Sign-In nécessite EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID (voir .env.example).
+            </Text>
+          )}
         </View>
       )}
     </KeyboardAvoidingView>
@@ -227,12 +385,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   primaryBtnText: { color: colors.white, fontWeight: '800', fontSize: 15 },
+  skip: { textAlign: 'center', color: colors.primary, fontWeight: '600' },
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.sm },
   divider: { flex: 1, height: 1, backgroundColor: colors.border },
   dividerText: { marginHorizontal: spacing.sm, color: colors.muted, fontSize: 12 },
-  socialRow: { flexDirection: 'row', gap: spacing.sm },
-  socialBtn: { flex: 1, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center' },
+  googleBtn: {
+    borderRadius: radius.md,
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  googleBtnText: { color: colors.text, fontWeight: '700' },
   socialBtnDisabled: { opacity: 0.5 },
-  socialBtnText: { color: colors.white, fontWeight: '700' },
-  soonTag: { color: colors.white, fontSize: 10, marginTop: 2 },
 });

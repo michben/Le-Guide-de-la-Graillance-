@@ -29,4 +29,4 @@ if (isFirebaseConfigured) {
   );
 }
 
-export { app, auth, db };
+export { app, auth, db, firebaseConfig };

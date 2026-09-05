@@ -7,10 +7,10 @@ MVP mobile (Expo / React Native, iOS + Android + Web) construit autour de 5 écr
 
 ## Écrans
 
-1. **Login** (`src/screens/LoginScreen.tsx`) — inscription/connexion par email + mot de passe via
-   **Firebase Authentication**, avec le message d'accueil « Ici, on graille vrai. » Facebook et X
-   sont affichés en boutons désactivés ("Bientôt") : ils nécessitent la création d'apps OAuth côté
-   Meta/X que je ne peux pas provisionner à ta place.
+1. **Login** (`src/screens/LoginScreen.tsx`) — **Firebase Authentication** avec trois méthodes :
+   email + mot de passe, Google (bouton popup sur web, `expo-auth-session` sur natif), et
+   téléphone + code SMS (reCAPTCHA invisible sur web, `expo-firebase-recaptcha` sur natif) — avec
+   le message d'accueil « Ici, on graille vrai. »
 2. **Localisation** (`src/screens/LocationScreen.tsx`) — géolocalisation GPS (`expo-location`) ou
    saisie manuelle d'adresse.
 3. **Catégories** (`src/screens/CategoriesScreen.tsx`) — grille Pizza / Kebab / Sushi / Burger /
@@ -23,11 +23,11 @@ MVP mobile (Expo / React Native, iOS + Android + Web) construit autour de 5 écr
 
 ## Fonctionnalités clés implémentées
 
-- **Authentification réelle (Firebase Auth)** : inscription et connexion par email/mot de passe,
+- **Authentification réelle (Firebase Auth)** : email/mot de passe, Google, et téléphone + SMS,
   état de session persistant (`onAuthStateChanged`), déconnexion depuis le profil dans l'en-tête.
   Tant que Firebase n'est pas configuré, l'app bascule automatiquement en **mode démo** (banneau
   jaune sur l'écran de login + bouton "Continuer en mode démo") pour rester testable sans
-  compte — voir `src/firebase/config.ts` et `src/context/AppContext.tsx`.
+  compte — voir `src/firebase/config.ts`, `src/firebase/auth.ts` et `src/context/AppContext.tsx`.
 - **Spots et avis en temps réel (Firestore)** : la liste des spots et leurs avis sont lus depuis
   Firestore (`onSnapshot`, mise à jour live) une fois connecté, et la publication d'un avis
   (`src/firebase/firestore.ts`) recalcule note moyenne et nombre d'avis dans une transaction
@@ -60,10 +60,12 @@ MVP mobile (Expo / React Native, iOS + Android + Web) construit autour de 5 écr
 
 L'app fonctionne sans configuration (mode démo), mais pour activer l'authentification réelle :
 
-1. Crée un projet sur [console.firebase.google.com](https://console.firebase.google.com).
-2. Dans **Authentication > Sign-in method**, active le fournisseur **Email/Password**.
-3. Dans **Paramètres du projet > Vos applications**, ajoute une application **Web** et copie sa
-   config.
+1. Crée un projet sur [console.firebase.google.com](https://console.firebase.google.com) (ou
+   utilise un projet existant).
+2. Dans **Authentication > Sign-in method**, active les trois fournisseurs : **Email/Password**,
+   **Google**, et **Phone**.
+3. Dans **Paramètres du projet > Vos applications**, ajoute (ou récupère) une application **Web**
+   et copie sa config.
 4. Copie `.env.example` vers `.env` et renseigne les valeurs :
 
    ```bash
@@ -79,11 +81,35 @@ L'app fonctionne sans configuration (mode démo), mais pour activer l'authentifi
    EXPO_PUBLIC_FIREBASE_APP_ID=...
    ```
 
-5. Relance `npm run web` (ou `ios`/`android`) : l'écran de login affiche alors le vrai formulaire
-   email + mot de passe (connexion/inscription) au lieu du bandeau "mode démo".
+5. Relance `npm run web` (ou `ios`/`android`) : l'écran de login affiche alors les vrais
+   formulaires (email/mot de passe, Google, téléphone) au lieu du bandeau "mode démo".
 
 `.env` n'est jamais commité (voir `.gitignore`) — chaque développeur/environnement garde sa propre
 config Firebase.
+
+### Google Sign-In : ce qui marche tout de suite vs. ce qu'il reste à faire
+
+- **Web** (`npm run web`, et la console admin) : fonctionne dès que le fournisseur Google est
+  activé dans Firebase — pas de config supplémentaire, le popup Google est géré par Firebase via
+  `authDomain`.
+- **Natif (iOS/Android)** : nécessite en plus `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` dans `.env` — copie
+  le **Web client ID** généré automatiquement dans Firebase Console > Authentication > Sign-in
+  method > Google > "Configuration du SDK Web". Sans cette variable, le bouton Google reste visible
+  mais désactivé côté natif (le web n'en a pas besoin). Le flux natif ouvre un navigateur via
+  `expo-auth-session` et revient dans l'app grâce au scheme `graillance://` déclaré dans
+  `app.json` — si tu passes en build standalone/EAS, ajoute ce redirect URI
+  (`graillance://` ou l'URI exacte loggée par `expo-auth-session`) dans les "Authorized redirect
+  URIs" du client OAuth Web côté Google Cloud Console. Je n'ai pas pu tester ce chemin natif dans
+  cet environnement (pas de simulateur iOS/Android ici) — à valider sur un appareil réel ou via
+  Expo Go.
+
+### Authentification par téléphone
+
+- **Web** : marche directement, reCAPTCHA invisible géré automatiquement (`src/firebase/auth.ts`).
+- **Natif** : utilise `expo-firebase-recaptcha` (une modale WebView) — déjà câblé dans
+  `LoginScreen.tsx`, mais également non testable dans ce sandbox (pas de device).
+- Pour éviter de consommer des vrais SMS pendant les tests, ajoute des numéros de test dans
+  Firebase Console > Authentication > Sign-in method > Phone > "Phone numbers for testing".
 
 ### Activer Firestore (spots + avis)
 
@@ -125,8 +151,8 @@ npm run dev
 
 ### Devenir admin (première connexion)
 
-1. Ouvre la console, clique **Créer un compte** (email + mot de passe) — ou connecte-toi avec un
-   compte existant créé depuis l'app mobile.
+1. Ouvre la console, clique **Créer un compte** (email + mot de passe) ou **Continuer avec Google**
+   — ou connecte-toi avec un compte existant créé depuis l'app mobile.
 2. Tant que ton compte n'est pas dans la collection `admins`, la console affiche **Accès refusé**
    et te montre ton `uid`.
 3. Dans la console Firebase, **Firestore Database > admins**, crée un document dont l'ID est
@@ -161,8 +187,9 @@ npm run android # nécessite Android Studio ou Expo Go
 - Migrer `reviews` d'un tableau dénormalisé sur le document `spots/{id}` vers une sous-collection
   (`spots/{id}/reviews/{reviewId}`) si le nombre d'avis par spot devient important — le tableau
   actuel est simple et suffisant pour un MVP mais grossit le document à chaque avis.
-- Facebook/X : créer les apps OAuth correspondantes puis les brancher via `expo-auth-session` +
-  les fournisseurs Firebase Auth `FacebookAuthProvider` / OIDC pour X.
+- Tester le flux Google et téléphone sur un vrai appareil/simulateur iOS et Android (non testable
+  dans ce sandbox de développement) ; ajouter `iosClientId`/`androidClientId` distincts si besoin
+  d'une build de production plus stricte que le `webClientId` partagé actuel.
 - Intégrer une vraie carte (Google Maps API / `react-native-maps`) à la place de la carte
   simplifiée utilisée pour ce MVP.
 - Modération des avis (vérification automatique/manuelle des tickets) côté backend (Cloud

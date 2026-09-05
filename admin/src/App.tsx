@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
+  GoogleAuthProvider,
   User,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -67,6 +69,18 @@ function LoginScreen() {
     }
   };
 
+  const google = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      await signInWithPopup(auth!, new GoogleAuthProvider());
+    } catch (err) {
+      setError(authErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="center-screen">
       <form className="card" onSubmit={submit}>
@@ -100,6 +114,15 @@ function LoginScreen() {
         {error && <p className="error-text">{error}</p>}
         <button className="btn btn-block" type="submit" disabled={loading}>
           {loading ? '...' : mode === 'signIn' ? 'Se connecter' : 'Créer le compte'}
+        </button>
+        <button
+          type="button"
+          className="btn btn-secondary btn-block"
+          style={{ marginTop: 10 }}
+          onClick={google}
+          disabled={loading}
+        >
+          Continuer avec Google
         </button>
         <p className="muted" style={{ marginTop: 14, marginBottom: 0, textAlign: 'center' }}>
           <button

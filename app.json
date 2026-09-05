@@ -2,6 +2,7 @@
   "expo": {
     "name": "Le Guide de la Graillance",
     "slug": "le-guide-de-la-graillance",
+    "scheme": "graillance",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
