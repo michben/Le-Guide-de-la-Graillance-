@@ -28,6 +28,7 @@
   "devDependencies": {
     "@types/react": "~19.2.2",
     "firebase-admin": "^14.3.0",
+    "leaflet": "^1.9.4",
     "tsx": "^4.23.13",
     "typescript": "~6.0.3"
   },
@@ -36,7 +37,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "seed:firestore": "tsx scripts/seed-firestore.ts"
+    "seed:firestore": "tsx scripts/seed-firestore.ts",
+    "vendor:leaflet": "node scripts/vendor-leaflet.mjs"
   },
   "private": true
 }

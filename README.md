@@ -16,7 +16,10 @@ MVP mobile (Expo / React Native, iOS + Android + Web) construit autour de 5 écr
 3. **Catégories** (`src/screens/CategoriesScreen.tsx`) — grille Pizza / Kebab / Sushi / Burger /
    Halal / Tacos / Poulet / Asiatique, ou "montre-moi tout".
 4. **Carte + Liste** (`src/screens/MapListScreen.tsx`) — bascule carte/liste des spots à proximité,
-   avec distance, note et badges (Halal, AVS, Achahada).
+   avec distance, note et badges (Halal, AVS, Achahada). La carte (`src/components/SpotsMap.tsx` /
+   `.web.tsx`) est une vraie carte interactive OpenStreetMap/Leaflet — zoom, déplacement, un pin
+   par spot à ses vraies coordonnées, popup avec bouton "Voir le spot" qui ouvre le détail. Aucune
+   clé Google Maps ni compte de facturation requis.
 5. **Détail du spot + avis** (`src/screens/SpotDetailScreen.tsx`) — infos du spot, avis certifiés
    (badge de preuve ticket + plat), et le bouton **« J'ai graillé ici »** qui ouvre le formulaire
    d'avis : impossible de publier sans photo du ticket **et** photo du plat.
@@ -190,8 +193,12 @@ npm run android # nécessite Android Studio ou Expo Go
 - Tester le flux Google et téléphone sur un vrai appareil/simulateur iOS et Android (non testable
   dans ce sandbox de développement) ; ajouter `iosClientId`/`androidClientId` distincts si besoin
   d'une build de production plus stricte que le `webClientId` partagé actuel.
-- Intégrer une vraie carte (Google Maps API / `react-native-maps`) à la place de la carte
-  simplifiée utilisée pour ce MVP.
+- Géocoder l'adresse saisie manuellement dans `LocationScreen` (actuellement l'adresse est juste
+  affichée en texte) et centrer la carte dessus ; idem pour la position GPS, qui n'est pas encore
+  reliée au centrage/zoom initial de la carte.
+- Passer à un fournisseur de tuiles dédié (MapTiler, Stadia Maps, ou Google Maps) avant une mise en
+  production à plus grande échelle — les tuiles `tile.openstreetmap.org` utilisées pour ce MVP sont
+  un service public à usage raisonnable, pas prévu pour un fort trafic.
 - Modération des avis (vérification automatique/manuelle des tickets) côté backend (Cloud
   Functions).
 - Paiement Premium (RevenueCat / Stripe) pour les abonnements 4,99 €/mois et 49,99 €/an.

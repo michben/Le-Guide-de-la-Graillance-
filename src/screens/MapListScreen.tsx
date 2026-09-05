@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from '
 import { useApp } from '../context/AppContext';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { SpotCard } from '../components/SpotCard';
+import { SpotsMap } from '../components/SpotsMap';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -19,17 +20,6 @@ export default function MapListScreen({ navigation }: Props) {
         : spots,
     [spots, selectedCategory]
   );
-
-  const bounds = useMemo(() => {
-    const lats = filtered.map((s) => s.lat);
-    const lngs = filtered.map((s) => s.lng);
-    return {
-      minLat: Math.min(...lats),
-      maxLat: Math.max(...lats),
-      minLng: Math.min(...lngs),
-      maxLng: Math.max(...lngs),
-    };
-  }, [filtered]);
 
   const openSpot = (id: string) => navigation.navigate('SpotDetail', { spotId: id });
 
@@ -73,26 +63,7 @@ export default function MapListScreen({ navigation }: Props) {
         </View>
       ) : view === 'map' ? (
         <View style={styles.mapWrap}>
-          <View style={styles.map}>
-            {filtered.map((spot) => {
-              const latSpan = bounds.maxLat - bounds.minLat || 1;
-              const lngSpan = bounds.maxLng - bounds.minLng || 1;
-              const top = 10 + (1 - (spot.lat - bounds.minLat) / latSpan) * 80;
-              const left = 10 + ((spot.lng - bounds.minLng) / lngSpan) * 80;
-              return (
-                <Pressable
-                  key={spot.id}
-                  style={[styles.pin, { top: `${top}%`, left: `${left}%` }]}
-                  onPress={() => openSpot(spot.id)}
-                >
-                  <View style={styles.pinBubble}>
-                    <Text style={styles.pinText}>⭐ {spot.rating}</Text>
-                  </View>
-                  <Text style={styles.pinDot}>📍</Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <SpotsMap spots={filtered} onSelectSpot={openSpot} />
           <FlatList
             style={styles.mapListStrip}
             horizontal
@@ -153,28 +124,6 @@ const styles = StyleSheet.create({
   centerState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.sm },
   centerStateText: { ...typography.body, color: colors.textLight, textAlign: 'center' },
   mapWrap: { flex: 1 },
-  map: {
-    flex: 1,
-    marginHorizontal: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: '#DCEEDC',
-    overflow: 'hidden',
-    position: 'relative',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  pin: { position: 'absolute', alignItems: 'center' },
-  pinBubble: {
-    backgroundColor: colors.white,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
-    marginBottom: 2,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  pinText: { fontSize: 10, fontWeight: '700', color: colors.text },
-  pinDot: { fontSize: 22 },
   mapListStrip: { maxHeight: 90, marginVertical: spacing.md },
   miniCard: {
     backgroundColor: colors.surface,
