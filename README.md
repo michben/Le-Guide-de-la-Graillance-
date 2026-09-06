@@ -181,6 +181,16 @@ npm run ios     # nécessite macOS/Xcode ou Expo Go
 npm run android # nécessite Android Studio ou Expo Go
 ```
 
+## Données actuelles
+
+`src/data/spots.ts` (mode démo) et Firestore (production) contiennent 11 vrais restaurants à Paris
+et en Seine-Saint-Denis (93), retenus dans des guides publics de restaurants halal — pas de
+données inventées. `rating`/`reviewCount`/`reviews` démarrent à 0/vide (pas de faux avis attribués
+à de vrais établissements). Horaires, spécialités et coordonnées sont approximatifs : à vérifier/
+affiner via la console admin avant de les considérer comme fiables à 100%. Seules les catégories
+Pizza, Kebab, Burger et Tacos sont couvertes pour l'instant — Sushi, Poulet et Asiatique restent à
+compléter avec de vraies adresses au fur et à mesure.
+
 ## Prochaines étapes suggérées
 
 - Brancher Firebase Storage pour les vraies photos de preuve (actuellement un simple booléen
