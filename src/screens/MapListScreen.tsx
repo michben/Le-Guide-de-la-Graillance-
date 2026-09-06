@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../context/AppContext';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { colors, radius, shadow, spacing, typography } from '../theme/theme';
 import { SpotCard } from '../components/SpotCard';
 import { SpotsMap } from '../components/SpotsMap';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -26,9 +26,12 @@ export default function MapListScreen({ navigation }: Props) {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>{selectedCategory ?? 'Tous les spots'}</Text>
-          {location ? <Text style={styles.subtitle}>📍 {location}</Text> : null}
+        <View style={styles.headerTitleRow}>
+          <Image source={require('../../assets/logo/mark.png')} style={styles.headerLogo} resizeMode="contain" />
+          <View>
+            <Text style={styles.title}>{selectedCategory ?? 'Tous les spots'}</Text>
+            {location ? <Text style={styles.subtitle}>📍 {location}</Text> : null}
+          </View>
         </View>
         <Pressable onPress={() => setSelectedCategory(null)}>
           <Text style={styles.reset}>Réinitialiser</Text>
@@ -105,6 +108,8 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     paddingBottom: 0,
   },
+  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  headerLogo: { width: 36, height: 36 },
   title: { ...typography.h2, color: colors.secondary },
   subtitle: { ...typography.small, color: colors.textLight, marginTop: 2 },
   reset: { color: colors.primary, fontWeight: '700', fontSize: 13, marginTop: 6 },
@@ -133,6 +138,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     justifyContent: 'center',
+    ...shadow.card,
   },
   miniName: { fontWeight: '700', color: colors.text, fontSize: 13, marginBottom: 4 },
   miniMeta: { fontSize: 11, color: colors.textLight },

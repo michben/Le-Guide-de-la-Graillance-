@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Spot } from '../types';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { colors, radius, shadow, spacing, typography } from '../theme/theme';
 import { BadgePill } from './BadgePill';
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -49,6 +49,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
+    ...shadow.card,
   },
   pressed: { opacity: 0.7 },
   thumb: {

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -22,7 +23,7 @@ import {
 import { isPhoneBlocked } from '../firebase/firestore';
 import { firebaseConfig } from '../firebase/config';
 import { GradientButton } from '../components/GradientButton';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { colors, radius, shadow, spacing, typography } from '../theme/theme';
 
 type Mode = 'signIn' | 'signUp';
 type AuthMethod = 'email' | 'phone';
@@ -146,7 +147,7 @@ export default function LoginScreen() {
       )}
 
       <View style={styles.hero}>
-        <Text style={styles.logo}>🍔🔥</Text>
+        <Image source={require('../../assets/logo/mark.png')} style={styles.logo} resizeMode="contain" />
         <Text style={styles.title}>Le Guide de la Graillance</Text>
         <Text style={styles.subtitle}>Tu veux graille ?</Text>
       </View>
@@ -322,7 +323,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background, padding: spacing.lg, justifyContent: 'center' },
   hero: { alignItems: 'center', marginBottom: spacing.xl },
-  logo: { fontSize: 56, marginBottom: spacing.sm },
+  logo: { width: 88, height: 88, marginBottom: spacing.sm },
   title: { ...typography.h1, color: colors.secondary, textAlign: 'center' },
   subtitle: { ...typography.h3, color: colors.primary, marginTop: spacing.xs },
   welcomeCard: {
@@ -331,6 +332,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
+    ...shadow.card,
   },
   welcomeTitle: { ...typography.h2, color: colors.text, marginBottom: spacing.sm },
   welcomeBody: { ...typography.body, color: colors.textLight, marginBottom: spacing.lg, lineHeight: 21 },

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../context/AppContext';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { colors, radius, shadow, spacing, typography } from '../theme/theme';
 import { RankBadge } from './RankBadge';
 
 export function HeaderProfile() {
@@ -60,6 +60,7 @@ const styles = StyleSheet.create({
     width: '85%',
     alignItems: 'center',
     gap: spacing.sm,
+    ...shadow.card,
   },
   title: { ...typography.h3, color: colors.text },
   stat: { ...typography.small, color: colors.textLight },

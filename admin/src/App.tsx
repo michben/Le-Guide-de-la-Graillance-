@@ -37,7 +37,7 @@ function NotConfiguredScreen() {
   return (
     <div className="center-screen">
       <div className="card">
-        <h1>🍔 Graillance Admin</h1>
+        <h1><img src="/logo-mark.png" alt="" className="brand-logo" /> Graillance Admin</h1>
         <p className="muted">
           Firebase n'est pas configuré. Renseigne les variables <code>VITE_FIREBASE_*</code> (voir{' '}
           <code>admin/.env.example</code>) dans les variables d'environnement de ce déploiement,
@@ -87,7 +87,7 @@ function LoginScreen() {
   return (
     <div className="center-screen">
       <form className="card" onSubmit={submit}>
-        <h1>🍔 Graillance Admin</h1>
+        <h1><img src="/logo-mark.png" alt="" className="brand-logo" /> Graillance Admin</h1>
         <p className="muted">
           {mode === 'signIn'
             ? 'Connecte-toi avec ton compte admin.'
@@ -232,7 +232,7 @@ export function AdminHome({ user }: { user: User }) {
   return (
     <div>
       <div className="topbar">
-        <h1>🍔 Graillance Admin</h1>
+        <h1><img src="/logo-mark.png" alt="" className="brand-logo" /> Graillance Admin</h1>
         <div className="user">
           {user.email}{' '}
           <button

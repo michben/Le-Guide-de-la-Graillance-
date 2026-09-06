@@ -39,6 +39,17 @@ export const radius = {
   pill: 999,
 };
 
+/** Soft elevation for cards/panels, tinted navy to match the brand instead of flat black. */
+export const shadow = {
+  card: {
+    shadowColor: '#1B2A4A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+};
+
 export const typography = {
   h1: { fontSize: 28, fontWeight: '800' as const },
   h2: { fontSize: 22, fontWeight: '800' as const },
