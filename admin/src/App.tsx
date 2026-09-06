@@ -10,7 +10,10 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db, isFirebaseConfigured } from './firebase';
-import { Dashboard } from './Dashboard';
+import { SpotsPanel } from './Dashboard';
+import { UsersPanel } from './UsersPanel';
+import { BlockedPhonesPanel } from './BlockedPhonesPanel';
+import { KebabFinderPanel } from './KebabFinderPanel';
 
 function authErrorMessage(error: unknown): string {
   const code = (error as { code?: string })?.code ?? '';
@@ -211,5 +214,53 @@ export default function App() {
   if (!adminChecked) return <div className="center-screen">Vérification des droits...</div>;
   if (!isAdmin) return <AccessDeniedScreen user={user} />;
 
-  return <Dashboard user={user} />;
+  return <AdminHome user={user} />;
+}
+
+type Tab = 'spots' | 'users' | 'phones' | 'kebabs';
+
+function AdminHome({ user }: { user: User }) {
+  const [tab, setTab] = useState<Tab>('spots');
+
+  const tabs: { key: Tab; label: string }[] = [
+    { key: 'spots', label: 'Restaurants' },
+    { key: 'kebabs', label: 'Trouver des kebabs' },
+    { key: 'users', label: 'Utilisateurs' },
+    { key: 'phones', label: 'Numéros bloqués' },
+  ];
+
+  return (
+    <div>
+      <div className="topbar">
+        <h1>🍔 Graillance Admin</h1>
+        <div className="user">
+          {user.email}{' '}
+          <button
+            className="btn-secondary"
+            style={{ marginLeft: 10, border: 'none', background: 'none', textDecoration: 'underline' }}
+            onClick={() => signOut(auth!)}
+          >
+            Déconnexion
+          </button>
+        </div>
+      </div>
+
+      <div className="tab-bar">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            className={`tab-btn ${tab === t.key ? 'tab-btn-active' : ''}`}
+            onClick={() => setTab(t.key)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'spots' && <SpotsPanel />}
+      {tab === 'kebabs' && <KebabFinderPanel />}
+      {tab === 'users' && <UsersPanel currentUser={user} />}
+      {tab === 'phones' && <BlockedPhonesPanel />}
+    </div>
+  );
 }

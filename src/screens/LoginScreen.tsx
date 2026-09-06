@@ -19,6 +19,7 @@ import {
   signInWithGoogleIdToken,
   signInWithGooglePopup,
 } from '../firebase/auth';
+import { isPhoneBlocked } from '../firebase/firestore';
 import { firebaseConfig } from '../firebase/config';
 import { GradientButton } from '../components/GradientButton';
 import { colors, radius, spacing, typography } from '../theme/theme';
@@ -86,13 +87,18 @@ export default function LoginScreen() {
 
   const sendCode = async () => {
     setError(null);
-    if (!phone.trim().startsWith('+')) {
+    const cleanPhone = phone.trim();
+    if (!cleanPhone.startsWith('+')) {
       setError('Format international requis, ex. +33612345678.');
       return;
     }
     setLoading(true);
     try {
-      const result = await sendPhoneVerificationCode(phone.trim(), recaptchaVerifier.current ?? undefined);
+      if (await isPhoneBlocked(cleanPhone)) {
+        setError('Ce numéro ne peut pas être utilisé.');
+        return;
+      }
+      const result = await sendPhoneVerificationCode(cleanPhone, recaptchaVerifier.current ?? undefined);
       setConfirmation(result);
     } catch (e) {
       setError(authErrorMessage(e));

@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   onSnapshot,
   orderBy,
   query,
@@ -50,6 +51,18 @@ export function subscribeToSpots(
     },
     (error) => onError(error)
   );
+}
+
+/**
+ * Checks the public `blockedPhones` denylist before a phone number is used to sign in.
+ * This is a client-side check only — a modified client could bypass it. It stops normal
+ * app usage from sending an SMS to a blocked number, but isn't a substitute for a
+ * server-side Firebase Blocking Function for airtight enforcement.
+ */
+export async function isPhoneBlocked(phoneNumber: string): Promise<boolean> {
+  if (!db) return false;
+  const snap = await getDoc(doc(db, 'blockedPhones', phoneNumber));
+  return snap.exists();
 }
 
 /**

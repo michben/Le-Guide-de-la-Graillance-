@@ -8,9 +8,11 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    // Admins can see their own doc (used by the "access denied" bootstrap screen) and manage
+    // the allowlist once they're in it (grant/revoke admin from the console's Users tab).
     match /admins/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if false;
+      allow read, write: if isAdmin();
     }
 
     match /spots/{spotId} {
@@ -22,6 +24,14 @@ service cloud.firestore {
         || (request.auth != null
             && request.resource.data.diff(resource.data).affectedKeys()
                  .hasOnly(['reviews', 'rating', 'reviewCount']));
+    }
+
+    // Denylist of blocked phone numbers. Publicly readable (not sensitive — just a list of
+    // numbers) so the mobile app can check it *before* a user is signed in, since phone
+    // sign-in itself is how a user becomes authenticated. Only admins can edit the list.
+    match /blockedPhones/{phone} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

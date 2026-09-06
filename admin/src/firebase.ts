@@ -16,3 +16,6 @@ export const isFirebaseConfigured = Boolean(firebaseConfig.apiKey && firebaseCon
 export const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : undefined;
 export const auth = app ? getAuth(app) : undefined;
 export const db = app ? getFirestore(app) : undefined;
+
+/** Base URL of the admin-backend service (list users, create admin accounts). */
+export const backendUrl: string = import.meta.env.VITE_ADMIN_BACKEND_URL || '';

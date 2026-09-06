@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { User, signOut } from 'firebase/auth';
 import {
   addDoc,
   collection,
@@ -10,7 +9,7 @@ import {
   query,
   updateDoc,
 } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { db } from './firebase';
 import { ALL_BADGES, Badge, CATEGORIES, EMPTY_FORM, Spot, SpotFormValues } from './types';
 
 function toSpot(id: string, data: Record<string, unknown>): Spot {
@@ -242,7 +241,7 @@ function SpotForm({
   );
 }
 
-export function Dashboard({ user }: { user: User }) {
+export function SpotsPanel() {
   const [spots, setSpots] = useState<Spot[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Spot | null>(null);
@@ -275,17 +274,7 @@ export function Dashboard({ user }: { user: User }) {
   };
 
   return (
-    <div>
-      <div className="topbar">
-        <h1>🍔 Graillance Admin</h1>
-        <div className="user">
-          {user.email}{' '}
-          <button className="btn-secondary" style={{ marginLeft: 10, border: 'none', background: 'none', textDecoration: 'underline' }} onClick={() => signOut(auth!)}>
-            Déconnexion
-          </button>
-        </div>
-      </div>
-
+    <>
       <div className="layout">
         <SpotForm
           key={editing?.id ?? 'new'}
@@ -351,6 +340,6 @@ export function Dashboard({ user }: { user: User }) {
           )}
         </div>
       </div>
-    </div>
+    </>
   );
 }
