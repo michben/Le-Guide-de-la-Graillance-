@@ -60,14 +60,32 @@ export function KebabFinderPanel() {
       setOrigin({ lat, lng, label: geoData[0].display_name });
 
       const radiusM = Math.round(radiusKm * 1000);
-      const overpassQuery = `[out:json][timeout:25];(node["amenity"="fast_food"]["cuisine"~"kebab",i](around:${radiusM},${lat},${lng});node["shop"="kebab"](around:${radiusM},${lat},${lng});node["name"~"kebab",i](around:${radiusM},${lat},${lng}););out body;`;
+      // The last clause matches free-text "kebab" in the name, but without a
+      // narrowing tag (amenity/shop) Overpass has to regex-scan every tagged
+      // node in the area — for a dense city that blows past its RAM limit
+      // ("Query ran out of memory in recurse"). Restrict it to food-related
+      // amenities so the candidate set stays small.
+      const overpassQuery = `[out:json][timeout:25];(node["amenity"="fast_food"]["cuisine"~"kebab",i](around:${radiusM},${lat},${lng});node["shop"="kebab"](around:${radiusM},${lat},${lng});node["amenity"~"^(fast_food|restaurant)$"]["name"~"kebab",i](around:${radiusM},${lat},${lng}););out body;`;
 
       const opRes = await fetch('https://overpass-api.de/api/interpreter', {
         method: 'POST',
         body: overpassQuery,
       });
-      if (!opRes.ok) throw new Error('overpass-error');
-      const opData = await opRes.json();
+      const rawText = await opRes.text();
+      if (!opRes.ok || !rawText.trim().startsWith('{')) {
+        // Overpass returns its error as plain/XML text (ignoring [out:json])
+        // when a query aborts before formatting, e.g. an out-of-memory or
+        // timeout runtime error.
+        if (/out of memory/i.test(rawText)) {
+          setError('Recherche trop lourde pour OpenStreetMap : réduis le rayon et réessaie.');
+        } else if (/timeout/i.test(rawText)) {
+          setError('OpenStreetMap a mis trop de temps à répondre : réessaie avec un rayon plus petit.');
+        } else {
+          setError("Échec de la recherche (OpenStreetMap indisponible ?). Réessaie dans un instant.");
+        }
+        return;
+      }
+      const opData = JSON.parse(rawText);
 
       const found: FoundSpot[] = (opData.elements || []).map((el: any) => ({
         osmId: el.id,
@@ -134,7 +152,7 @@ export function KebabFinderPanel() {
             id="kf-radius"
             type="number"
             min={1}
-            max={50}
+            max={20}
             value={radiusKm}
             onChange={(e) => setRadiusKm(Number(e.target.value))}
           />
