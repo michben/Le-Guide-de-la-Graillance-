@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useApp } from '../context/AppContext';
 import { BadgePill } from '../components/BadgePill';
 import { RankBadge } from '../components/RankBadge';
+import { GradientButton } from '../components/GradientButton';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
@@ -48,9 +49,9 @@ export default function SpotDetailScreen({ route }: Props) {
         <InfoRow label="Spécialités" value={spot.specialties.join(', ')} />
       </View>
 
-      <Pressable style={styles.ctaBtn} onPress={() => setModalVisible(true)}>
-        <Text style={styles.ctaBtnText}>🍽️ J'ai graillé ici</Text>
-      </Pressable>
+      <GradientButton style={styles.ctaBtn} onPress={() => setModalVisible(true)}>
+        🍽️ J'ai graillé ici
+      </GradientButton>
 
       <Text style={styles.sectionTitle}>Avis certifiés ({spot.reviews.length})</Text>
       {spot.reviews.length === 0 ? (
@@ -178,9 +179,9 @@ function ReviewModal({
 
           {error && <Text style={styles.modalError}>{error}</Text>}
 
-          <Pressable
-            style={[styles.submitBtn, (!canSubmit || submitting) && styles.submitBtnDisabled]}
-            disabled={!canSubmit || submitting}
+          <GradientButton
+            disabled={!canSubmit}
+            loading={submitting}
             onPress={async () => {
               setError(null);
               setSubmitting(true);
@@ -194,12 +195,8 @@ function ReviewModal({
               }
             }}
           >
-            {submitting ? (
-              <ActivityIndicator color={colors.white} />
-            ) : (
-              <Text style={styles.submitBtnText}>Publier mon avis</Text>
-            )}
-          </Pressable>
+            Publier mon avis
+          </GradientButton>
           <Pressable
             onPress={() => {
               reset();
@@ -218,7 +215,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   centerState: { alignItems: 'center', justifyContent: 'center' },
   header: { padding: spacing.lg, paddingBottom: spacing.sm },
-  name: { ...typography.h1, color: colors.text, marginBottom: spacing.sm },
+  name: { ...typography.h1, color: colors.secondary, marginBottom: spacing.sm },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: spacing.xs },
   ratingLine: { ...typography.body, color: colors.textLight, marginTop: 4 },
   infoCard: {
@@ -234,14 +231,9 @@ const styles = StyleSheet.create({
   infoLabel: { ...typography.small, color: colors.muted, fontWeight: '700', marginBottom: 2 },
   infoValue: { ...typography.body, color: colors.text },
   ctaBtn: {
-    backgroundColor: colors.primary,
     marginHorizontal: spacing.lg,
     marginTop: spacing.md,
-    borderRadius: radius.md,
-    paddingVertical: 14,
-    alignItems: 'center',
   },
-  ctaBtnText: { color: colors.white, fontWeight: '800', fontSize: 15 },
   sectionTitle: { ...typography.h3, color: colors.text, marginHorizontal: spacing.lg, marginTop: spacing.lg, marginBottom: spacing.sm },
   empty: { color: colors.textLight, marginHorizontal: spacing.lg },
   reviewCard: {
@@ -294,8 +286,5 @@ const styles = StyleSheet.create({
   },
   photoBtnDone: { borderColor: colors.success, backgroundColor: `${colors.success}14` },
   photoBtnText: { fontSize: 12, fontWeight: '700', color: colors.text, textAlign: 'center' },
-  submitBtn: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center' },
-  submitBtnDisabled: { opacity: 0.4 },
-  submitBtnText: { color: colors.white, fontWeight: '800', fontSize: 15 },
   cancel: { textAlign: 'center', color: colors.textLight, marginTop: spacing.md },
 });

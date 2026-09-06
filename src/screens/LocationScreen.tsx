@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Location from 'expo-location';
 import { useApp } from '../context/AppContext';
+import { GradientButton } from '../components/GradientButton';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
@@ -40,9 +41,9 @@ export default function LocationScreen({ navigation }: Props) {
       <Text style={styles.title}>Où tu veux graille ?</Text>
       <Text style={styles.subtitle}>On te trouve les meilleurs spots autour de toi.</Text>
 
-      <Pressable style={styles.gpsBtn} onPress={useGps}>
-        <Text style={styles.gpsBtnText}>📍 Utiliser ma position GPS</Text>
-      </Pressable>
+      <GradientButton variant="navy" onPress={useGps}>
+        📍 Utiliser ma position GPS
+      </GradientButton>
 
       {status ? <Text style={styles.status}>{status}</Text> : null}
 
@@ -59,28 +60,17 @@ export default function LocationScreen({ navigation }: Props) {
         value={manualAddress}
         onChangeText={setManualAddress}
       />
-      <Pressable
-        style={[styles.primaryBtn, !manualAddress.trim() && styles.disabledBtn]}
-        onPress={useManual}
-        disabled={!manualAddress.trim()}
-      >
-        <Text style={styles.primaryBtnText}>Valider l'adresse</Text>
-      </Pressable>
+      <GradientButton onPress={useManual} disabled={!manualAddress.trim()}>
+        Valider l'adresse
+      </GradientButton>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background, padding: spacing.lg, justifyContent: 'center' },
-  title: { ...typography.h1, color: colors.text, marginBottom: spacing.xs },
+  title: { ...typography.h1, color: colors.secondary, marginBottom: spacing.xs },
   subtitle: { ...typography.body, color: colors.textLight, marginBottom: spacing.xl },
-  gpsBtn: {
-    backgroundColor: colors.secondary,
-    borderRadius: radius.md,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  gpsBtnText: { color: colors.white, fontWeight: '800', fontSize: 15 },
   status: { textAlign: 'center', color: colors.textLight, marginTop: spacing.sm, fontSize: 13 },
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.lg },
   divider: { flex: 1, height: 1, backgroundColor: colors.border },
@@ -96,12 +86,4 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.md,
   },
-  primaryBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  disabledBtn: { opacity: 0.4 },
-  primaryBtnText: { color: colors.white, fontWeight: '800', fontSize: 15 },
 });

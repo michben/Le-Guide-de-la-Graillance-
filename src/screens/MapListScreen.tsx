@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     paddingBottom: 0,
   },
-  title: { ...typography.h2, color: colors.text },
+  title: { ...typography.h2, color: colors.secondary },
   subtitle: { ...typography.small, color: colors.textLight, marginTop: 2 },
   reset: { color: colors.primary, fontWeight: '700', fontSize: 13, marginTop: 6 },
   toggleRow: {

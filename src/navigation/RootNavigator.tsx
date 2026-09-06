@@ -30,7 +30,7 @@ export function RootNavigator() {
       <Stack.Navigator
         screenOptions={{
           headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text,
+          headerTintColor: colors.secondary,
           headerShadowVisible: false,
           contentStyle: { backgroundColor: colors.background },
         }}

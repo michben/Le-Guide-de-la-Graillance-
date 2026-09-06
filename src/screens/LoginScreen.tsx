@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -21,6 +20,7 @@ import {
   signInWithGooglePopup,
 } from '../firebase/auth';
 import { firebaseConfig } from '../firebase/config';
+import { GradientButton } from '../components/GradientButton';
 import { colors, radius, spacing, typography } from '../theme/theme';
 
 type Mode = 'signIn' | 'signUp';
@@ -152,9 +152,7 @@ export default function LoginScreen() {
             Pas de fake, que des preuves. Chaque avis est certifié par une photo du ticket et du
             plat. Fini les influenceurs, place aux vrais grailleurs.
           </Text>
-          <Pressable style={styles.primaryBtn} onPress={() => setShowWelcome(false)}>
-            <Text style={styles.primaryBtnText}>J'ai compris, on y va</Text>
-          </Pressable>
+          <GradientButton onPress={() => setShowWelcome(false)}>J'ai compris, on y va</GradientButton>
         </View>
       ) : !isFirebaseConfigured ? (
         <View style={styles.form}>
@@ -164,9 +162,7 @@ export default function LoginScreen() {
               pour explorer l'appli sans compte réel.
             </Text>
           </View>
-          <Pressable style={styles.primaryBtn} onPress={demoLogin}>
-            <Text style={styles.primaryBtnText}>Continuer en mode démo</Text>
-          </Pressable>
+          <GradientButton onPress={demoLogin}>Continuer en mode démo</GradientButton>
         </View>
       ) : (
         <View style={styles.form}>
@@ -245,15 +241,9 @@ export default function LoginScreen() {
 
               {error && <Text style={styles.error}>{error}</Text>}
 
-              <Pressable style={styles.primaryBtn} onPress={submitEmail} disabled={loading}>
-                {loading ? (
-                  <ActivityIndicator color={colors.white} />
-                ) : (
-                  <Text style={styles.primaryBtnText}>
-                    {mode === 'signUp' ? "S'inscrire" : 'Se connecter'}
-                  </Text>
-                )}
-              </Pressable>
+              <GradientButton onPress={submitEmail} loading={loading}>
+                {mode === 'signUp' ? "S'inscrire" : 'Se connecter'}
+              </GradientButton>
             </>
           ) : !confirmation ? (
             <>
@@ -269,13 +259,9 @@ export default function LoginScreen() {
 
               {error && <Text style={styles.error}>{error}</Text>}
 
-              <Pressable style={styles.primaryBtn} onPress={sendCode} disabled={loading}>
-                {loading ? (
-                  <ActivityIndicator color={colors.white} />
-                ) : (
-                  <Text style={styles.primaryBtnText}>Envoyer le code</Text>
-                )}
-              </Pressable>
+              <GradientButton onPress={sendCode} loading={loading}>
+                Envoyer le code
+              </GradientButton>
             </>
           ) : (
             <>
@@ -290,13 +276,9 @@ export default function LoginScreen() {
 
               {error && <Text style={styles.error}>{error}</Text>}
 
-              <Pressable style={styles.primaryBtn} onPress={verifyCode} disabled={loading}>
-                {loading ? (
-                  <ActivityIndicator color={colors.white} />
-                ) : (
-                  <Text style={styles.primaryBtnText}>Valider le code</Text>
-                )}
-              </Pressable>
+              <GradientButton onPress={verifyCode} loading={loading}>
+                Valider le code
+              </GradientButton>
               <Pressable onPress={() => setConfirmation(null)}>
                 <Text style={styles.skip}>Changer de numéro</Text>
               </Pressable>
@@ -335,7 +317,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background, padding: spacing.lg, justifyContent: 'center' },
   hero: { alignItems: 'center', marginBottom: spacing.xl },
   logo: { fontSize: 56, marginBottom: spacing.sm },
-  title: { ...typography.h1, color: colors.text, textAlign: 'center' },
+  title: { ...typography.h1, color: colors.secondary, textAlign: 'center' },
   subtitle: { ...typography.h3, color: colors.primary, marginTop: spacing.xs },
   welcomeCard: {
     backgroundColor: colors.surface,
@@ -378,13 +360,6 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   error: { color: colors.primaryDark, fontSize: 13, fontWeight: '600' },
-  primaryBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  primaryBtnText: { color: colors.white, fontWeight: '800', fontSize: 15 },
   skip: { textAlign: 'center', color: colors.primary, fontWeight: '600' },
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.sm },
   divider: { flex: 1, height: 1, backgroundColor: colors.border },

@@ -3,7 +3,7 @@ export const colors = {
   surface: '#FFFFFF',
   primary: '#FF5A36',
   primaryDark: '#D8431F',
-  secondary: '#1F2937',
+  secondary: '#1B2A4A',
   accent: '#FFB800',
   success: '#2FA84F',
   muted: '#8A8A8E',
@@ -17,6 +17,12 @@ export const colors = {
   bronze: '#C97B3D',
   premium: '#FFB800',
 };
+
+/** The flame gradient from the app's logo mark: warm gold tip fading into a deep red-orange base. */
+export const flameGradient = ['#FFC542', '#FF5A36', '#D8431F'] as const;
+
+/** Navy gradient for secondary actions, echoing the logo's wordmark color. */
+export const navyGradient = ['#2C4270', '#1B2A4A'] as const;
 
 export const spacing = {
   xs: 4,
