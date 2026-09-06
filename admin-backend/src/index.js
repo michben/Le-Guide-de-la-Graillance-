@@ -106,5 +106,21 @@ app.post('/admin-accounts', requireAdmin, async (req, res) => {
   }
 });
 
+app.delete('/users/:uid', requireAdmin, async (req, res) => {
+  const { uid } = req.params;
+  if (uid === req.uid) {
+    return res.status(400).json({ error: 'Tu ne peux pas supprimer ton propre compte ici.' });
+  }
+  try {
+    await auth.deleteUser(uid);
+    await db.collection('admins').doc(uid).delete().catch(() => {});
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    const message = err.code === 'auth/user-not-found' ? 'Compte introuvable.' : 'Échec de la suppression du compte.';
+    res.status(400).json({ error: message });
+  }
+});
+
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`admin-backend listening on ${port}`));

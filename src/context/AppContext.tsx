@@ -9,7 +9,15 @@ import {
   signUpWithEmail,
   User,
 } from '../firebase/auth';
-import { addReviewToFirestore, subscribeToSpots } from '../firebase/firestore';
+import {
+  addReviewToFirestore,
+  deleteReviewFromFirestore,
+  deleteSpotFromFirestore,
+  subscribeIsAdmin,
+  subscribeToSpots,
+} from '../firebase/firestore';
+
+const ADMIN_BACKEND_URL = process.env.EXPO_PUBLIC_ADMIN_BACKEND_URL;
 
 function rankForCount(count: number): UserRank {
   if (count >= 10) return 'Premium';
@@ -36,6 +44,10 @@ interface AppContextValue {
   user: CurrentUser;
   isPremium: boolean;
   setPremium: (value: boolean) => void;
+  isAdmin: boolean;
+  deleteReview: (spotId: string, reviewId: string) => Promise<void>;
+  deleteSpot: (spotId: string) => Promise<void>;
+  deleteUserAccount: (uid: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -51,6 +63,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [spotsError, setSpotsError] = useState<string | null>(null);
   const [reviewsPosted, setReviewsPosted] = useState(2);
   const [isPremium, setIsPremium] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged((u) => {
@@ -59,6 +72,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (!firebaseUser) {
+      setIsAdmin(false);
+      return;
+    }
+    return subscribeIsAdmin(firebaseUser.uid, setIsAdmin);
+  }, [firebaseUser]);
 
   const isLoggedIn = isFirebaseConfigured ? Boolean(firebaseUser) : isDemoLoggedIn;
 
@@ -92,7 +113,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const addReview: AppContextValue['addReview'] = async (spotId, review) => {
-    const reviewWithRank = { ...review, authorRank: rank };
+    const reviewWithRank = { ...review, authorRank: rank, authorUid: firebaseUser?.uid };
 
     if (isFirebaseConfigured) {
       await addReviewToFirestore(spotId, reviewWithRank);
@@ -151,6 +172,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     user,
     isPremium,
     setPremium: setIsPremium,
+    isAdmin,
+    deleteReview: (spotId, reviewId) => deleteReviewFromFirestore(spotId, reviewId),
+    deleteSpot: (spotId) => deleteSpotFromFirestore(spotId),
+    deleteUserAccount: async (uid) => {
+      if (!ADMIN_BACKEND_URL) {
+        throw new Error('Backend admin non configuré (EXPO_PUBLIC_ADMIN_BACKEND_URL manquant).');
+      }
+      if (!firebaseUser) {
+        throw new Error('Non authentifié.');
+      }
+      const idToken = await firebaseUser.getIdToken();
+      const res = await fetch(`${ADMIN_BACKEND_URL}/users/${uid}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}) as { error?: string });
+        throw new Error(body.error || 'Échec de la suppression du compte.');
+      }
+    },
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -15,6 +15,7 @@ export type Category =
 export interface Review {
   id: string;
   author: string;
+  authorUid?: string;
   authorRank: UserRank;
   rating: number;
   comment: string;

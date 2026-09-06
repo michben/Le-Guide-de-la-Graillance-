@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useApp } from '../context/AppContext';
 import { BadgePill } from '../components/BadgePill';
@@ -11,11 +11,13 @@ import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SpotDetail'>;
 
-export default function SpotDetailScreen({ route }: Props) {
+export default function SpotDetailScreen({ route, navigation }: Props) {
   const { spotId } = route.params;
-  const { spots, spotsLoading, addReview, user } = useApp();
+  const { spots, spotsLoading, addReview, user, isAdmin, deleteReview, deleteSpot, deleteUserAccount } = useApp();
   const spot = spots.find((s) => s.id === spotId);
   const [modalVisible, setModalVisible] = useState(false);
+  const [deletingSpot, setDeletingSpot] = useState(false);
+  const [busyReviewId, setBusyReviewId] = useState<string | null>(null);
 
   if (!spot) {
     return (
@@ -29,6 +31,71 @@ export default function SpotDetailScreen({ route }: Props) {
     );
   }
 
+  const confirmDeleteSpot = () => {
+    Alert.alert('Supprimer ce restaurant ?', `"${spot.name}" sera retiré définitivement de l'application.`, [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Supprimer',
+        style: 'destructive',
+        onPress: async () => {
+          setDeletingSpot(true);
+          try {
+            await deleteSpot(spot.id);
+            navigation.goBack();
+          } catch {
+            Alert.alert('Erreur', 'Échec de la suppression du restaurant.');
+          } finally {
+            setDeletingSpot(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const confirmDeleteReview = (reviewId: string) => {
+    Alert.alert('Supprimer cet avis ?', 'Cette action est définitive.', [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Supprimer',
+        style: 'destructive',
+        onPress: async () => {
+          setBusyReviewId(reviewId);
+          try {
+            await deleteReview(spot.id, reviewId);
+          } catch {
+            Alert.alert('Erreur', "Échec de la suppression de l'avis.");
+          } finally {
+            setBusyReviewId(null);
+          }
+        },
+      },
+    ]);
+  };
+
+  const confirmDeleteUser = (authorUid: string, authorName: string) => {
+    Alert.alert(
+      'Supprimer ce compte ?',
+      `Le compte de "${authorName}" sera définitivement supprimé de l'application.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer le compte',
+          style: 'destructive',
+          onPress: async () => {
+            setBusyReviewId(authorUid);
+            try {
+              await deleteUserAccount(authorUid);
+            } catch (e) {
+              Alert.alert('Erreur', e instanceof Error ? e.message : 'Échec de la suppression du compte.');
+            } finally {
+              setBusyReviewId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={{ paddingBottom: spacing.xl }}>
       <View style={styles.header}>
@@ -41,6 +108,13 @@ export default function SpotDetailScreen({ route }: Props) {
         <Text style={styles.ratingLine}>
           ⭐ {spot.rating} · {spot.reviewCount} avis · {spot.priceRange}
         </Text>
+        {isAdmin && (
+          <Pressable style={styles.adminDeleteSpotBtn} onPress={confirmDeleteSpot} disabled={deletingSpot}>
+            <Text style={styles.adminDeleteSpotText}>
+              {deletingSpot ? 'Suppression...' : '🗑️ Supprimer ce restaurant (admin)'}
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       <View style={styles.infoCard}>
@@ -70,6 +144,25 @@ export default function SpotDetailScreen({ route }: Props) {
               {review.dishPhoto && <Text style={styles.proofTag}>📸 Photo du plat</Text>}
             </View>
             <Text style={styles.reviewDate}>{review.date}</Text>
+            {isAdmin && (
+              <View style={styles.adminReviewActions}>
+                <Pressable disabled={busyReviewId === review.id} onPress={() => confirmDeleteReview(review.id)}>
+                  <Text style={styles.adminActionText}>
+                    {busyReviewId === review.id ? '...' : "🗑️ Supprimer l'avis"}
+                  </Text>
+                </Pressable>
+                {review.authorUid && (
+                  <Pressable
+                    disabled={busyReviewId === review.authorUid}
+                    onPress={() => confirmDeleteUser(review.authorUid!, review.author)}
+                  >
+                    <Text style={styles.adminActionText}>
+                      {busyReviewId === review.authorUid ? '...' : '🚫 Supprimer le compte'}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
           </View>
         ))
       )}
@@ -252,6 +345,10 @@ const styles = StyleSheet.create({
   proofRow: { flexDirection: 'row', gap: 10, marginBottom: 6 },
   proofTag: { fontSize: 11, color: colors.success, fontWeight: '700' },
   reviewDate: { fontSize: 11, color: colors.muted },
+  adminDeleteSpotBtn: { marginTop: spacing.sm, alignSelf: 'flex-start' },
+  adminDeleteSpotText: { color: colors.primaryDark, fontWeight: '700', fontSize: 12 },
+  adminReviewActions: { flexDirection: 'row', gap: 16, marginTop: 8 },
+  adminActionText: { color: colors.primaryDark, fontWeight: '700', fontSize: 11 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalCard: {
     backgroundColor: colors.surface,

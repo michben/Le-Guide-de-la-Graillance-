@@ -119,6 +119,26 @@ export function UsersPanel({ currentUser }: { currentUser: User }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const removeUser = async (u: AdminUser) => {
+    if (!backendUrl) return;
+    if (!window.confirm(`Supprimer définitivement le compte de "${u.displayName || u.email || u.uid}" ?`)) return;
+    setBusyUid(u.uid);
+    try {
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch(`${backendUrl}/users/${u.uid}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Échec de la suppression.');
+      setUsers((prev) => prev && prev.filter((x) => x.uid !== u.uid));
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Échec de la suppression.');
+    } finally {
+      setBusyUid(null);
+    }
+  };
+
   const toggleAdmin = async (u: AdminUser) => {
     if (!db) return;
     setBusyUid(u.uid);
@@ -177,6 +197,14 @@ export function UsersPanel({ currentUser }: { currentUser: User }) {
                     onClick={() => toggleAdmin(u)}
                   >
                     {u.isAdmin ? 'Retirer admin' : 'Rendre admin'}
+                  </button>
+                  <button
+                    className="btn btn-danger"
+                    disabled={busyUid === u.uid || u.uid === currentUser.uid}
+                    onClick={() => removeUser(u)}
+                    title={u.uid === currentUser.uid ? 'Tu ne peux pas supprimer ton propre compte ici.' : undefined}
+                  >
+                    Supprimer
                   </button>
                 </div>
               </div>

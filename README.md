@@ -174,9 +174,11 @@ n'importe quel compte créé dans l'app mobile ne puisse pas s'auto-nommer admin
   n'est ajouté automatiquement — OpenStreetMap ne certifie rien, c'est à toi de les cocher en
   éditant le spot si tu confirmes la certification.
 - **Utilisateurs** : liste tous les comptes (email, téléphone, moyen de connexion), un bouton pour
-  rendre/retirer les droits admin, et un formulaire pour créer directement un compte admin avec un
-  mot de passe choisi (pas besoin que la personne s'inscrive elle-même). Nécessite `admin-backend/`
-  (ci-dessous) — sans lui, l'onglet affiche une erreur claire plutôt que de planter.
+  rendre/retirer les droits admin, un bouton **Supprimer** pour supprimer définitivement un compte
+  (impossible de supprimer le sien depuis cet écran), et un formulaire pour créer directement un
+  compte admin avec un mot de passe choisi (pas besoin que la personne s'inscrive elle-même).
+  Nécessite `admin-backend/` (ci-dessous) — sans lui, l'onglet affiche une erreur claire plutôt que
+  de planter.
 - **Numéros bloqués** : liste noire de numéros de téléphone. L'app mobile vérifie cette liste avant
   d'envoyer un code SMS (voir "Limite de sécurité" ci-dessous).
 
@@ -187,8 +189,10 @@ comptes Firebase Auth, et créer un compte pour quelqu'un d'autre avec un mot de
 SDK client Firebase ne les expose pas — il faut le SDK Admin, qui ne doit jamais tourner dans un
 navigateur (il donnerait un accès total au projet à quiconque ouvrirait les outils de dev). D'où
 `admin-backend/` : un petit serveur Express qui porte une clé de compte de service et n'expose que
-`GET /users` et `POST /admin-accounts`, chacune vérifiant que l'appelant est authentifié **et**
-déjà admin avant de répondre.
+`GET /users`, `POST /admin-accounts` et `DELETE /users/:uid`, chacune vérifiant que l'appelant est
+authentifié **et** déjà admin avant de répondre (`DELETE /users/:uid` refuse en plus qu'un admin se
+supprime lui-même). C'est aussi cette route que l'app mobile appelle pour le bouton "Supprimer le
+compte" décrit ci-dessous.
 
 **Lancer en local :**
 
@@ -205,10 +209,29 @@ FIREBASE_SERVICE_ACCOUNT="$(cat /chemin/vers/ta-cle.json)" npm start
   - `FIREBASE_SERVICE_ACCOUNT` : le contenu JSON complet de la clé de compte de service (garde
     cette clé strictement sur Render — jamais dans le repo, jamais dans `.env.local`).
   - `ALLOWED_ORIGINS` : origines autorisées en CORS, séparées par des virgules (par défaut
-    `https://graillance-admin.onrender.com,http://localhost:5173`).
+    `https://graillance-admin.onrender.com,http://localhost:5173` — ajoute l'origine de l'app
+    mobile web, ex. `https://graillance-app.onrender.com`, sinon le bouton "Supprimer le compte"
+    dans l'app échouera en CORS depuis un navigateur).
 
-Puis renseigne l'URL de ce service dans la console admin (`VITE_ADMIN_BACKEND_URL`, voir
-`.env.example` dans `admin/`).
+Puis renseigne l'URL de ce service :
+- dans la console admin (`VITE_ADMIN_BACKEND_URL`, voir `.env.example` dans `admin/`) ;
+- dans l'app mobile (`EXPO_PUBLIC_ADMIN_BACKEND_URL`, voir `.env.example` à la racine) — nécessaire
+  pour que le bouton admin "Supprimer le compte" (voir ci-dessous) fonctionne.
+
+### Actions admin directement dans l'app mobile
+
+Depuis la fiche d'un restaurant (`SpotDetailScreen`), un compte présent dans la collection `admins`
+voit apparaître, sans passer par la console séparée :
+- **🗑️ Supprimer ce restaurant** : supprime le spot (même règle Firestore que la console).
+- **🗑️ Supprimer l'avis** sur chaque avis : le retire du tableau `reviews` et recalcule la note
+  moyenne et le nombre d'avis.
+- **🚫 Supprimer le compte** sur chaque avis (si l'auteur a un `authorUid` — présent sur les avis
+  publiés après ce changement, pas sur les plus anciens) : supprime définitivement le compte Firebase
+  Auth de l'auteur via `admin-backend`.
+
+Ces trois actions passent par les mêmes règles Firestore que la console (`isAdmin()`), donc elles ne
+fonctionnent que pour un compte réellement admin — les rendre visibles dans l'UI ne suffit pas à
+contourner la sécurité côté serveur.
 
 ### Limite de sécurité : blocage de numéro de téléphone
 

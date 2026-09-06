@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   onSnapshot,
@@ -54,6 +55,22 @@ export function subscribeToSpots(
 }
 
 /**
+ * Subscribes to whether `uid` is in the `admins` collection. Returns an unsubscribe function.
+ * Used to gate admin-only actions (delete review/spot/user) inside the main app.
+ */
+export function subscribeIsAdmin(uid: string, onData: (isAdmin: boolean) => void) {
+  if (!db) {
+    onData(false);
+    return () => {};
+  }
+  return onSnapshot(
+    doc(db, 'admins', uid),
+    (snap) => onData(snap.exists()),
+    () => onData(false)
+  );
+}
+
+/**
  * Checks the public `blockedPhones` denylist before a phone number is used to sign in.
  * This is a client-side check only — a modified client could bypass it. It stops normal
  * app usage from sending an SMS to a blocked number, but isn't a substitute for a
@@ -104,4 +121,46 @@ export async function addReviewToFirestore(
       rating: newRating,
     });
   });
+}
+
+/**
+ * Removes one review from a spot and recomputes its rating/reviewCount. Admin-only per
+ * Firestore rules (isAdmin()) — a non-admin write to this collection is rejected server-side.
+ */
+export async function deleteReviewFromFirestore(spotId: string, reviewId: string) {
+  if (!db) {
+    throw new Error('Firestore non configuré.');
+  }
+  const spotRef = doc(db, SPOTS_COLLECTION, spotId);
+
+  await runTransaction(db, async (transaction) => {
+    const snap = await transaction.get(spotRef);
+    if (!snap.exists()) {
+      throw new Error('Spot introuvable.');
+    }
+    const data = snap.data();
+    const currentReviews: Review[] = Array.isArray(data.reviews) ? data.reviews : [];
+    const remaining = currentReviews.filter((r) => r.id !== reviewId);
+    if (remaining.length === currentReviews.length) return;
+
+    const newCount = remaining.length;
+    const newRating =
+      newCount === 0
+        ? 0
+        : Number((remaining.reduce((sum, r) => sum + r.rating, 0) / newCount).toFixed(1));
+
+    transaction.update(spotRef, {
+      reviews: remaining,
+      reviewCount: newCount,
+      rating: newRating,
+    });
+  });
+}
+
+/** Deletes a spot entirely. Admin-only per Firestore rules. */
+export async function deleteSpotFromFirestore(spotId: string) {
+  if (!db) {
+    throw new Error('Firestore non configuré.');
+  }
+  await deleteDoc(doc(db, SPOTS_COLLECTION, spotId));
 }
