@@ -5,9 +5,9 @@ import { useApp } from '../context/AppContext';
 import { BadgePill } from '../components/BadgePill';
 import { RankBadge } from '../components/RankBadge';
 import { GradientButton } from '../components/GradientButton';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { colors, radius, shadow, spacing, typography } from '../theme/theme';
 import { confirmAsync, notify } from '../utils/confirm';
-import { uploadReviewPhoto } from '../firebase/storage';
+import { compressPhotoToDataUrl } from '../utils/reviewPhoto';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -302,16 +302,15 @@ function ReviewModal({
               setError(null);
               setSubmitting(true);
               try {
-                const draftId = `${spotId}-${Date.now()}`;
                 let ticketPhotoUrl: string | undefined;
                 let dishPhotoUrl: string | undefined;
                 try {
                   [ticketPhotoUrl, dishPhotoUrl] = await Promise.all([
-                    uploadReviewPhoto(ticketUri!, `reviews/${spotId}/${draftId}-ticket.jpg`),
-                    uploadReviewPhoto(dishUri!, `reviews/${spotId}/${draftId}-dish.jpg`),
+                    compressPhotoToDataUrl(ticketUri!),
+                    compressPhotoToDataUrl(dishUri!),
                   ]);
                 } catch {
-                  // Storage not configured/enabled yet — still publish the review with the
+                  // Compression failed for some reason — still publish the review with the
                   // "proof provided" flags, just without a viewable photo.
                 }
                 await onSubmit({
@@ -362,6 +361,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     gap: spacing.sm,
+    ...shadow.card,
   },
   infoRow: {},
   infoLabel: { ...typography.small, color: colors.muted, fontWeight: '700', marginBottom: 2 },
@@ -380,6 +380,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
+    ...shadow.card,
   },
   reviewHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   reviewAuthor: { fontWeight: '700', color: colors.text },
@@ -408,6 +409,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     padding: spacing.lg,
+    ...shadow.card,
   },
   modalTitle: { ...typography.h2, color: colors.text },
   modalSubtitle: { ...typography.small, color: colors.textLight, marginTop: 4, marginBottom: spacing.md },

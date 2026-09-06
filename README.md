@@ -136,27 +136,26 @@ config Firebase.
 5. Recharge l'app connectée : la carte/liste et le détail d'un spot lisent maintenant Firestore en
    temps réel, et "Publier mon avis" écrit dans Firestore au lieu de l'état local.
 
-### Activer les photos dans les avis (Firebase Storage)
+### Photos dans les avis (gratuit, sans Firebase Storage)
 
 Avant ce changement, les photos de ticket/plat n'étaient jamais réellement enregistrées — seuls des
-badges "🧾 Ticket vérifié" / "📸 Photo du plat" s'affichaient. Les photos sont maintenant uploadées
-sur Firebase Storage et affichées en miniature sur la fiche du spot, avec un appui pour les voir en
-plein écran.
+badges "🧾 Ticket vérifié" / "📸 Photo du plat" s'affichaient. Firebase Storage aurait été la solution
+la plus "propre", mais sur un projet récent Firebase demande souvent de passer au **plan Blaze**
+(carte bancaire requise, même si l'usage réel reste gratuit) pour créer le bucket — pas acceptable à
+budget zéro.
 
-1. Dans la console Firebase : **Build > Storage > Get started**. Choisis un emplacement (idéalement
-   le même que Firestore). Sur un projet créé récemment, Firebase peut demander de passer au **plan
-   Blaze** (paiement à l'usage) pour créer le bucket — reste gratuit à faible volume, mais une carte
-   bancaire est requise pour l'activer. C'est la même situation que pour les Cloud Functions (voir
-   plus bas).
-2. Colle le contenu de `storage.rules` (racine du repo) dans l'onglet **Règles** de Storage, puis
-   publie. Ces règles : lecture publique (les photos sont montrées à tout le monde), écriture
-   réservée aux utilisateurs connectés, limitée à des fichiers image de moins de 8 Mo.
-3. Vérifie que `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET` est bien renseigné dans `.env` (et sur Render
-   pour `graillance-app`) — c'est déjà l'une des 6 valeurs `EXPO_PUBLIC_FIREBASE_*` copiées depuis la
-   config Firebase Web.
-4. Tant que Storage n'est pas activé, "Publier mon avis" continue de marcher normalement : l'upload
-   échoue silencieusement et l'avis est publié sans photo visible (juste les badges de preuve, comme
-   avant).
+À la place, chaque photo est redimensionnée et compressée sur l'appareil (`expo-image-manipulator`,
+900 px de large, JPEG qualité 0.5 → autour de 50-150 Ko) puis stockée **directement dans le document
+Firestore de l'avis**, en base64. Zéro nouveau service, zéro carte bancaire : ça tourne entièrement
+sur le Firestore gratuit déjà utilisé pour le reste de l'app. Les photos s'affichent en miniature sur
+la fiche du spot, avec un appui pour les voir en plein écran.
+
+Limite à connaître : un document Firestore ne peut pas dépasser 1 Mo. Avec deux photos compressées
+par avis, on reste large, mais si un jour tu remarques des avis "photo manquante", c'est le signe
+qu'il faut soit compresser plus fort (`MAX_WIDTH`/`JPEG_QUALITY` dans
+`src/utils/reviewPhoto.ts`), soit passer à un vrai service de stockage de fichiers (Firebase Storage
+plus tard, ou une alternative gratuite comme Cloudinary/Supabase Storage qui n'exigent pas de carte
+bancaire pour leur tier gratuit).
 
 ## Console d'administration (`admin/`)
 
