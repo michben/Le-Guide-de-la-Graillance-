@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
-const admin = require('firebase-admin');
+const { cert, initializeApp } = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
+const { getFirestore } = require('firebase-admin/firestore');
 
 const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
 if (!serviceAccountJson) {
@@ -8,12 +10,9 @@ if (!serviceAccountJson) {
   process.exit(1);
 }
 
-admin.initializeApp({
-  credential: admin.credential.cert(JSON.parse(serviceAccountJson)),
-});
-
-const db = admin.firestore();
-const auth = admin.auth();
+const app_ = initializeApp({ credential: cert(JSON.parse(serviceAccountJson)) });
+const db = getFirestore(app_);
+const auth = getAuth(app_);
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'https://graillance-admin.onrender.com,http://localhost:5173')
   .split(',')
