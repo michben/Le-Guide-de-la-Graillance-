@@ -165,12 +165,69 @@ npm run dev
 C'est un allowlist volontairement géré à la main dans la console (pas d'auto-promotion) pour que
 n'importe quel compte créé dans l'app mobile ne puisse pas s'auto-nommer admin.
 
+### Onglets de la console
+
+- **Restaurants** : le formulaire + la liste d'origine (créer/éditer/filtrer/supprimer).
+- **Trouver des kebabs** : donne une adresse et un rayon (10 km par défaut), la console géocode
+  l'adresse (Nominatim) puis cherche les spots kebab alentour sur OpenStreetMap (Overpass). Chaque
+  résultat a un bouton "Ajouter" qui crée le spot dans Firestore. Aucun badge Halal/AVS/Achahada
+  n'est ajouté automatiquement — OpenStreetMap ne certifie rien, c'est à toi de les cocher en
+  éditant le spot si tu confirmes la certification.
+- **Utilisateurs** : liste tous les comptes (email, téléphone, moyen de connexion), un bouton pour
+  rendre/retirer les droits admin, et un formulaire pour créer directement un compte admin avec un
+  mot de passe choisi (pas besoin que la personne s'inscrive elle-même). Nécessite `admin-backend/`
+  (ci-dessous) — sans lui, l'onglet affiche une erreur claire plutôt que de planter.
+- **Numéros bloqués** : liste noire de numéros de téléphone. L'app mobile vérifie cette liste avant
+  d'envoyer un code SMS (voir "Limite de sécurité" ci-dessous).
+
+### `admin-backend/` — le service qui a besoin des droits Admin SDK
+
+Deux opérations ne sont pas possibles depuis le navigateur, même en étant admin : lister les
+comptes Firebase Auth, et créer un compte pour quelqu'un d'autre avec un mot de passe choisi. Le
+SDK client Firebase ne les expose pas — il faut le SDK Admin, qui ne doit jamais tourner dans un
+navigateur (il donnerait un accès total au projet à quiconque ouvrirait les outils de dev). D'où
+`admin-backend/` : un petit serveur Express qui porte une clé de compte de service et n'expose que
+`GET /users` et `POST /admin-accounts`, chacune vérifiant que l'appelant est authentifié **et**
+déjà admin avant de répondre.
+
+**Lancer en local :**
+
+```bash
+cd admin-backend
+npm install
+FIREBASE_SERVICE_ACCOUNT="$(cat /chemin/vers/ta-cle.json)" npm start
+```
+
+**Déployer sur Render** (web service, pas static site) :
+- **Build command** : `cd admin-backend && npm install`
+- **Start command** : `cd admin-backend && npm start`
+- **Variables d'environnement** :
+  - `FIREBASE_SERVICE_ACCOUNT` : le contenu JSON complet de la clé de compte de service (garde
+    cette clé strictement sur Render — jamais dans le repo, jamais dans `.env.local`).
+  - `ALLOWED_ORIGINS` : origines autorisées en CORS, séparées par des virgules (par défaut
+    `https://graillance-admin.onrender.com,http://localhost:5173`).
+
+Puis renseigne l'URL de ce service dans la console admin (`VITE_ADMIN_BACKEND_URL`, voir
+`.env.example` dans `admin/`).
+
+### Limite de sécurité : blocage de numéro de téléphone
+
+Le blocage actuel (`blockedPhones` + vérification dans `LoginScreen.tsx` avant d'envoyer le SMS)
+est **côté client uniquement** : il empêche l'app normale d'envoyer un SMS à un numéro bloqué, mais
+un client modifié pourrait contourner cette vérification et appeler Firebase Auth directement. Un
+blocage garanti nécessite une **Firebase Blocking Function** (`beforeCreate`/`beforeSignIn` côté
+Cloud Functions), qui intercepte la tentative avant même que Firebase ne l'accepte — mais déployer
+des Cloud Functions demande de passer le projet au **plan Blaze** (paiement à l'usage ; reste
+gratuit à faible volume, mais une carte bancaire est requise pour l'activer). Dis-moi quand tu es
+prêt à franchir cette étape et je mets en place la fonction.
+
 ### Déployer sur Render
 
 Static site pointant sur ce repo :
 - **Build command** : `cd admin && npm install && npm run build`
 - **Publish directory** : `admin/dist`
-- **Variables d'environnement** : les 6 `VITE_FIREBASE_*` (mêmes valeurs que `.env.local`).
+- **Variables d'environnement** : les 6 `VITE_FIREBASE_*` (mêmes valeurs que `.env.local`) +
+  `VITE_ADMIN_BACKEND_URL` (l'URL du service `admin-backend` ci-dessus).
 
 ## Lancer le projet
 

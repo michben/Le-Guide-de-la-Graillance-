@@ -219,7 +219,7 @@ export default function App() {
 
 type Tab = 'spots' | 'users' | 'phones' | 'kebabs';
 
-function AdminHome({ user }: { user: User }) {
+export function AdminHome({ user }: { user: User }) {
   const [tab, setTab] = useState<Tab>('spots');
 
   const tabs: { key: Tab; label: string }[] = [
