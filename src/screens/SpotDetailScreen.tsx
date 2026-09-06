@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useApp } from '../context/AppContext';
 import { BadgePill } from '../components/BadgePill';
 import { RankBadge } from '../components/RankBadge';
 import { GradientButton } from '../components/GradientButton';
 import { colors, radius, spacing, typography } from '../theme/theme';
+import { confirmAsync, notify } from '../utils/confirm';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -31,69 +32,47 @@ export default function SpotDetailScreen({ route, navigation }: Props) {
     );
   }
 
-  const confirmDeleteSpot = () => {
-    Alert.alert('Supprimer ce restaurant ?', `"${spot.name}" sera retiré définitivement de l'application.`, [
-      { text: 'Annuler', style: 'cancel' },
-      {
-        text: 'Supprimer',
-        style: 'destructive',
-        onPress: async () => {
-          setDeletingSpot(true);
-          try {
-            await deleteSpot(spot.id);
-            navigation.goBack();
-          } catch {
-            Alert.alert('Erreur', 'Échec de la suppression du restaurant.');
-          } finally {
-            setDeletingSpot(false);
-          }
-        },
-      },
-    ]);
+  const confirmDeleteSpot = async () => {
+    const ok = await confirmAsync('Supprimer ce restaurant ?', `"${spot.name}" sera retiré définitivement de l'application.`);
+    if (!ok) return;
+    setDeletingSpot(true);
+    try {
+      await deleteSpot(spot.id);
+      navigation.goBack();
+    } catch {
+      notify('Erreur', 'Échec de la suppression du restaurant.');
+    } finally {
+      setDeletingSpot(false);
+    }
   };
 
-  const confirmDeleteReview = (reviewId: string) => {
-    Alert.alert('Supprimer cet avis ?', 'Cette action est définitive.', [
-      { text: 'Annuler', style: 'cancel' },
-      {
-        text: 'Supprimer',
-        style: 'destructive',
-        onPress: async () => {
-          setBusyReviewId(reviewId);
-          try {
-            await deleteReview(spot.id, reviewId);
-          } catch {
-            Alert.alert('Erreur', "Échec de la suppression de l'avis.");
-          } finally {
-            setBusyReviewId(null);
-          }
-        },
-      },
-    ]);
+  const confirmDeleteReview = async (reviewId: string) => {
+    const ok = await confirmAsync('Supprimer cet avis ?', 'Cette action est définitive.');
+    if (!ok) return;
+    setBusyReviewId(reviewId);
+    try {
+      await deleteReview(spot.id, reviewId);
+    } catch {
+      notify('Erreur', "Échec de la suppression de l'avis.");
+    } finally {
+      setBusyReviewId(null);
+    }
   };
 
-  const confirmDeleteUser = (authorUid: string, authorName: string) => {
-    Alert.alert(
+  const confirmDeleteUser = async (authorUid: string, authorName: string) => {
+    const ok = await confirmAsync(
       'Supprimer ce compte ?',
-      `Le compte de "${authorName}" sera définitivement supprimé de l'application.`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer le compte',
-          style: 'destructive',
-          onPress: async () => {
-            setBusyReviewId(authorUid);
-            try {
-              await deleteUserAccount(authorUid);
-            } catch (e) {
-              Alert.alert('Erreur', e instanceof Error ? e.message : 'Échec de la suppression du compte.');
-            } finally {
-              setBusyReviewId(null);
-            }
-          },
-        },
-      ]
+      `Le compte de "${authorName}" sera définitivement supprimé de l'application.`
     );
+    if (!ok) return;
+    setBusyReviewId(authorUid);
+    try {
+      await deleteUserAccount(authorUid);
+    } catch (e) {
+      notify('Erreur', e instanceof Error ? e.message : 'Échec de la suppression du compte.');
+    } finally {
+      setBusyReviewId(null);
+    }
   };
 
   return (
