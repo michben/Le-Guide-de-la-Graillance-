@@ -82,6 +82,15 @@ export async function isPhoneBlocked(phoneNumber: string): Promise<boolean> {
   return snap.exists();
 }
 
+/** Firestore rejects explicit `undefined` field values (even nested in an array) — drop them. */
+function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
+  const result = { ...obj };
+  (Object.keys(result) as (keyof T)[]).forEach((key) => {
+    if (result[key] === undefined) delete result[key];
+  });
+  return result;
+}
+
 /**
  * Appends a review to a spot and recomputes its rating/reviewCount atomically.
  */
@@ -104,11 +113,11 @@ export async function addReviewToFirestore(
     const currentRating = Number(data.rating ?? 0);
     const currentCount = Number(data.reviewCount ?? 0);
 
-    const newReview: Review = {
+    const newReview: Review = stripUndefined({
       ...review,
       id: `${spotId}-${Date.now()}`,
       date: new Date().toISOString().slice(0, 10),
-    };
+    });
 
     const newCount = currentCount + 1;
     const newRating = Number(

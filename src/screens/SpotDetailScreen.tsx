@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useApp } from '../context/AppContext';
 import { BadgePill } from '../components/BadgePill';
@@ -7,6 +7,7 @@ import { RankBadge } from '../components/RankBadge';
 import { GradientButton } from '../components/GradientButton';
 import { colors, radius, spacing, typography } from '../theme/theme';
 import { confirmAsync, notify } from '../utils/confirm';
+import { uploadReviewPhoto } from '../firebase/storage';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -19,6 +20,7 @@ export default function SpotDetailScreen({ route, navigation }: Props) {
   const [modalVisible, setModalVisible] = useState(false);
   const [deletingSpot, setDeletingSpot] = useState(false);
   const [busyReviewId, setBusyReviewId] = useState<string | null>(null);
+  const [viewerUri, setViewerUri] = useState<string | null>(null);
 
   if (!spot) {
     return (
@@ -119,9 +121,25 @@ export default function SpotDetailScreen({ route, navigation }: Props) {
             <Text style={styles.reviewRating}>{'⭐'.repeat(review.rating)}</Text>
             <Text style={styles.reviewComment}>{review.comment}</Text>
             <View style={styles.proofRow}>
-              {review.ticketPhoto && <Text style={styles.proofTag}>🧾 Ticket vérifié</Text>}
-              {review.dishPhoto && <Text style={styles.proofTag}>📸 Photo du plat</Text>}
+              {review.ticketPhoto && !review.ticketPhotoUrl && <Text style={styles.proofTag}>🧾 Ticket vérifié</Text>}
+              {review.dishPhoto && !review.dishPhotoUrl && <Text style={styles.proofTag}>📸 Photo du plat</Text>}
             </View>
+            {(review.ticketPhotoUrl || review.dishPhotoUrl) && (
+              <View style={styles.reviewPhotoRow}>
+                {review.ticketPhotoUrl && (
+                  <Pressable onPress={() => setViewerUri(review.ticketPhotoUrl!)}>
+                    <Image source={{ uri: review.ticketPhotoUrl }} style={styles.reviewThumb} />
+                    <Text style={styles.reviewThumbLabel}>🧾 Ticket</Text>
+                  </Pressable>
+                )}
+                {review.dishPhotoUrl && (
+                  <Pressable onPress={() => setViewerUri(review.dishPhotoUrl!)}>
+                    <Image source={{ uri: review.dishPhotoUrl }} style={styles.reviewThumb} />
+                    <Text style={styles.reviewThumbLabel}>📸 Plat</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
             <Text style={styles.reviewDate}>{review.date}</Text>
             {isAdmin && (
               <View style={styles.adminReviewActions}>
@@ -154,7 +172,14 @@ export default function SpotDetailScreen({ route, navigation }: Props) {
           setModalVisible(false);
         }}
         userName={user.name}
+        spotId={spot.id}
       />
+
+      <Modal visible={!!viewerUri} transparent animationType="fade" onRequestClose={() => setViewerUri(null)}>
+        <Pressable style={styles.viewerBackdrop} onPress={() => setViewerUri(null)}>
+          {viewerUri && <Image source={{ uri: viewerUri }} style={styles.viewerImage} resizeMode="contain" />}
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -173,38 +198,49 @@ function ReviewModal({
   onClose,
   onSubmit,
   userName,
+  spotId,
 }: {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (review: { author: string; rating: number; comment: string; ticketPhoto: boolean; dishPhoto: boolean }) => Promise<void>;
+  onSubmit: (review: {
+    author: string;
+    rating: number;
+    comment: string;
+    ticketPhoto: boolean;
+    dishPhoto: boolean;
+    ticketPhotoUrl?: string;
+    dishPhotoUrl?: string;
+  }) => Promise<void>;
   userName: string;
+  spotId: string;
 }) {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
-  const [ticketPhoto, setTicketPhoto] = useState(false);
-  const [dishPhoto, setDishPhoto] = useState(false);
+  const [ticketUri, setTicketUri] = useState<string | null>(null);
+  const [dishUri, setDishUri] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reset = () => {
     setRating(5);
     setComment('');
-    setTicketPhoto(false);
-    setDishPhoto(false);
+    setTicketUri(null);
+    setDishUri(null);
     setError(null);
   };
 
   const pickPhoto = async (which: 'ticket' | 'dish') => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       quality: 0.5,
     });
     if (!result.canceled) {
-      which === 'ticket' ? setTicketPhoto(true) : setDishPhoto(true);
+      const uri = result.assets[0].uri;
+      which === 'ticket' ? setTicketUri(uri) : setDishUri(uri);
     }
   };
 
-  const canSubmit = ticketPhoto && dishPhoto && comment.trim().length > 0;
+  const canSubmit = !!ticketUri && !!dishUri && comment.trim().length > 0;
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -235,17 +271,25 @@ function ReviewModal({
           <View style={styles.photoRow}>
             <Pressable
               testID="photo-ticket-btn"
-              style={[styles.photoBtn, ticketPhoto && styles.photoBtnDone]}
+              style={[styles.photoBtn, ticketUri && styles.photoBtnDone]}
               onPress={() => pickPhoto('ticket')}
             >
-              <Text style={styles.photoBtnText}>{ticketPhoto ? '✅ Ticket ajouté' : '🧾 Photo du ticket'}</Text>
+              {ticketUri ? (
+                <Image source={{ uri: ticketUri }} style={styles.photoPreview} />
+              ) : (
+                <Text style={styles.photoBtnText}>🧾 Photo du ticket</Text>
+              )}
             </Pressable>
             <Pressable
               testID="photo-dish-btn"
-              style={[styles.photoBtn, dishPhoto && styles.photoBtnDone]}
+              style={[styles.photoBtn, dishUri && styles.photoBtnDone]}
               onPress={() => pickPhoto('dish')}
             >
-              <Text style={styles.photoBtnText}>{dishPhoto ? '✅ Plat ajouté' : '📸 Photo du plat'}</Text>
+              {dishUri ? (
+                <Image source={{ uri: dishUri }} style={styles.photoPreview} />
+              ) : (
+                <Text style={styles.photoBtnText}>📸 Photo du plat</Text>
+              )}
             </Pressable>
           </View>
 
@@ -258,7 +302,27 @@ function ReviewModal({
               setError(null);
               setSubmitting(true);
               try {
-                await onSubmit({ author: userName, rating, comment: comment.trim(), ticketPhoto, dishPhoto });
+                const draftId = `${spotId}-${Date.now()}`;
+                let ticketPhotoUrl: string | undefined;
+                let dishPhotoUrl: string | undefined;
+                try {
+                  [ticketPhotoUrl, dishPhotoUrl] = await Promise.all([
+                    uploadReviewPhoto(ticketUri!, `reviews/${spotId}/${draftId}-ticket.jpg`),
+                    uploadReviewPhoto(dishUri!, `reviews/${spotId}/${draftId}-dish.jpg`),
+                  ]);
+                } catch {
+                  // Storage not configured/enabled yet — still publish the review with the
+                  // "proof provided" flags, just without a viewable photo.
+                }
+                await onSubmit({
+                  author: userName,
+                  rating,
+                  comment: comment.trim(),
+                  ticketPhoto: true,
+                  dishPhoto: true,
+                  ticketPhotoUrl,
+                  dishPhotoUrl,
+                });
                 reset();
               } catch (e) {
                 setError("Impossible de publier l'avis, réessaie.");
@@ -323,6 +387,16 @@ const styles = StyleSheet.create({
   reviewComment: { color: colors.text, marginBottom: 8, lineHeight: 20 },
   proofRow: { flexDirection: 'row', gap: 10, marginBottom: 6 },
   proofTag: { fontSize: 11, color: colors.success, fontWeight: '700' },
+  reviewPhotoRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  reviewThumb: { width: 72, height: 72, borderRadius: radius.md, backgroundColor: colors.background },
+  reviewThumbLabel: { fontSize: 10, color: colors.textLight, textAlign: 'center', marginTop: 2 },
+  viewerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewerImage: { width: '100%', height: '80%' },
   reviewDate: { fontSize: 11, color: colors.muted },
   adminDeleteSpotBtn: { marginTop: spacing.sm, alignSelf: 'flex-start' },
   adminDeleteSpotText: { color: colors.primaryDark, fontWeight: '700', fontSize: 12 },
@@ -362,5 +436,6 @@ const styles = StyleSheet.create({
   },
   photoBtnDone: { borderColor: colors.success, backgroundColor: `${colors.success}14` },
   photoBtnText: { fontSize: 12, fontWeight: '700', color: colors.text, textAlign: 'center' },
+  photoPreview: { width: '100%', height: 64, borderRadius: radius.sm },
   cancel: { textAlign: 'center', color: colors.textLight, marginTop: spacing.md },
 });

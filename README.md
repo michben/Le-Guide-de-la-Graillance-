@@ -136,6 +136,28 @@ config Firebase.
 5. Recharge l'app connectée : la carte/liste et le détail d'un spot lisent maintenant Firestore en
    temps réel, et "Publier mon avis" écrit dans Firestore au lieu de l'état local.
 
+### Activer les photos dans les avis (Firebase Storage)
+
+Avant ce changement, les photos de ticket/plat n'étaient jamais réellement enregistrées — seuls des
+badges "🧾 Ticket vérifié" / "📸 Photo du plat" s'affichaient. Les photos sont maintenant uploadées
+sur Firebase Storage et affichées en miniature sur la fiche du spot, avec un appui pour les voir en
+plein écran.
+
+1. Dans la console Firebase : **Build > Storage > Get started**. Choisis un emplacement (idéalement
+   le même que Firestore). Sur un projet créé récemment, Firebase peut demander de passer au **plan
+   Blaze** (paiement à l'usage) pour créer le bucket — reste gratuit à faible volume, mais une carte
+   bancaire est requise pour l'activer. C'est la même situation que pour les Cloud Functions (voir
+   plus bas).
+2. Colle le contenu de `storage.rules` (racine du repo) dans l'onglet **Règles** de Storage, puis
+   publie. Ces règles : lecture publique (les photos sont montrées à tout le monde), écriture
+   réservée aux utilisateurs connectés, limitée à des fichiers image de moins de 8 Mo.
+3. Vérifie que `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET` est bien renseigné dans `.env` (et sur Render
+   pour `graillance-app`) — c'est déjà l'une des 6 valeurs `EXPO_PUBLIC_FIREBASE_*` copiées depuis la
+   config Firebase Web.
+4. Tant que Storage n'est pas activé, "Publier mon avis" continue de marcher normalement : l'upload
+   échoue silencieusement et l'avis est publié sans photo visible (juste les badges de preuve, comme
+   avant).
+
 ## Console d'administration (`admin/`)
 
 Petite app web séparée (React + Vite, pas Expo) pour saisir les restaurants à la main : formulaire

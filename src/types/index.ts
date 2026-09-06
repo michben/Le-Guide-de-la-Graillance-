@@ -21,6 +21,8 @@ export interface Review {
   comment: string;
   ticketPhoto: boolean;
   dishPhoto: boolean;
+  ticketPhotoUrl?: string;
+  dishPhotoUrl?: string;
   date: string;
 }
 

@@ -1,6 +1,7 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -16,11 +17,13 @@ export const isFirebaseConfigured = Boolean(firebaseConfig.apiKey && firebaseCon
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
+let storage: FirebaseStorage | undefined;
 
 if (isFirebaseConfigured) {
   app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
+  storage = getStorage(app);
 } else if (__DEV__) {
   console.warn(
     '[Firebase] Config manquante (EXPO_PUBLIC_FIREBASE_*). ' +
@@ -29,4 +32,4 @@ if (isFirebaseConfigured) {
   );
 }
 
-export { app, auth, db, firebaseConfig };
+export { app, auth, db, storage, firebaseConfig };
