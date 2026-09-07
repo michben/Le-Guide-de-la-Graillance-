@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import { colors, radius, shadow, spacing, typography } from '../theme/theme';
 import { SpotCard } from '../components/SpotCard';
 import { SpotsMap } from '../components/SpotsMap';
+import { computeTrendingSpots } from '../utils/trending';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -13,13 +14,12 @@ export default function MapListScreen({ navigation }: Props) {
   const { spots, spotsLoading, spotsError, selectedCategory, setSelectedCategory, location } = useApp();
   const [view, setView] = useState<'map' | 'list'>('map');
 
-  const filtered = useMemo(
-    () =>
-      selectedCategory
-        ? spots.filter((s) => s.category === selectedCategory || (selectedCategory === 'Halal' && s.badges.includes('halal')))
-        : spots,
-    [spots, selectedCategory]
-  );
+  const filtered = useMemo(() => {
+    if (selectedCategory === 'Tendance') return computeTrendingSpots(spots);
+    return selectedCategory
+      ? spots.filter((s) => s.category === selectedCategory || (selectedCategory === 'Halal' && s.badges.includes('halal')))
+      : spots;
+  }, [spots, selectedCategory]);
 
   const openSpot = (id: string) => navigation.navigate('SpotDetail', { spotId: id });
 
@@ -29,7 +29,9 @@ export default function MapListScreen({ navigation }: Props) {
         <View style={styles.headerTitleRow}>
           <Image source={require('../../assets/logo/mark.png')} style={styles.headerLogo} resizeMode="contain" />
           <View>
-            <Text style={styles.title}>{selectedCategory ?? 'Tous les spots'}</Text>
+            <Text style={styles.title}>
+              {selectedCategory === 'Tendance' ? '🔥 Tendance' : (selectedCategory ?? 'Tous les spots')}
+            </Text>
             {location ? <Text style={styles.subtitle}>📍 {location}</Text> : null}
           </View>
         </View>
@@ -92,7 +94,13 @@ export default function MapListScreen({ navigation }: Props) {
           keyExtractor={(s) => s.id}
           contentContainerStyle={{ padding: spacing.md }}
           renderItem={({ item }) => <SpotCard spot={item} onPress={() => openSpot(item.id)} />}
-          ListEmptyComponent={<Text style={styles.empty}>Aucun spot trouvé par ici.</Text>}
+          ListEmptyComponent={
+            <Text style={styles.empty}>
+              {selectedCategory === 'Tendance'
+                ? "Pas encore de tendance : sois parmi les premiers à laisser un avis !"
+                : 'Aucun spot trouvé par ici.'}
+            </Text>
+          }
         />
       )}
     </View>

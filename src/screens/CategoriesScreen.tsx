@@ -1,9 +1,10 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { CATEGORIES } from '../data/spots';
 import { useApp } from '../context/AppContext';
 import { GradientButton } from '../components/GradientButton';
-import { colors, radius, spacing, typography } from '../theme/theme';
+import { colors, flameGradient, radius, spacing, typography } from '../theme/theme';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -27,9 +28,15 @@ export default function CategoriesScreen({ navigation }: Props) {
       <View style={styles.grid}>
         {CATEGORIES.map((cat, index) => (
           <Pressable key={cat.key} style={styles.tile} onPress={() => choose(cat.key)}>
-            <View style={[styles.tileEmojiWrap, { backgroundColor: TILE_TINTS[index % TILE_TINTS.length] }]}>
-              <Text style={styles.tileEmoji}>{cat.emoji}</Text>
-            </View>
+            {cat.key === 'Tendance' ? (
+              <LinearGradient colors={flameGradient} style={styles.tileEmojiWrap}>
+                <Text style={styles.tileEmoji}>{cat.emoji}</Text>
+              </LinearGradient>
+            ) : (
+              <View style={[styles.tileEmojiWrap, { backgroundColor: TILE_TINTS[index % TILE_TINTS.length] }]}>
+                <Text style={styles.tileEmoji}>{cat.emoji}</Text>
+              </View>
+            )}
             <Text style={styles.tileLabel}>{cat.label}</Text>
           </Pressable>
         ))}

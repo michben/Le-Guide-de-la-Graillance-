@@ -187,6 +187,7 @@ export const SPOTS: Spot[] = [
 ];
 
 export const CATEGORIES: { key: string; label: string; emoji: string }[] = [
+  { key: 'Tendance', label: 'Tendance', emoji: '🔥' },
   { key: 'Pizza', label: 'Pizza', emoji: '🍕' },
   { key: 'Kebab', label: 'Kebab', emoji: '🌯' },
   { key: 'Sushi', label: 'Sushi', emoji: '🍣' },
