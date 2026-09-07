@@ -10,6 +10,7 @@ import LocationScreen from '../screens/LocationScreen';
 import CategoriesScreen from '../screens/CategoriesScreen';
 import MapListScreen from '../screens/MapListScreen';
 import SpotDetailScreen from '../screens/SpotDetailScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 import { HeaderProfile } from '../components/HeaderProfile';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -59,6 +60,7 @@ export function RootNavigator() {
               component={SpotDetailScreen}
               options={{ title: '', headerRight: () => <HeaderProfile /> }}
             />
+            <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Mon profil' }} />
           </>
         )}
       </Stack.Navigator>

@@ -16,6 +16,7 @@ import {
   subscribeIsAdmin,
   subscribeToSpots,
 } from '../firebase/firestore';
+import { subscribeUserProfile, updateUserProfile, UserProfile } from '../firebase/users';
 
 const ADMIN_BACKEND_URL = process.env.EXPO_PUBLIC_ADMIN_BACKEND_URL;
 
@@ -48,6 +49,7 @@ interface AppContextValue {
   deleteReview: (spotId: string, reviewId: string) => Promise<void>;
   deleteSpot: (spotId: string) => Promise<void>;
   deleteUserAccount: (uid: string) => Promise<void>;
+  updateProfilePhoto: (dataUrl: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -61,9 +63,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [spots, setSpots] = useState<Spot[]>(isFirebaseConfigured ? [] : SPOTS);
   const [spotsLoading, setSpotsLoading] = useState(isFirebaseConfigured);
   const [spotsError, setSpotsError] = useState<string | null>(null);
-  const [reviewsPosted, setReviewsPosted] = useState(2);
+  const [demoReviewsPosted, setDemoReviewsPosted] = useState(2);
   const [isPremium, setIsPremium] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged((u) => {
@@ -79,6 +82,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     return subscribeIsAdmin(firebaseUser.uid, setIsAdmin);
+  }, [firebaseUser]);
+
+  useEffect(() => {
+    if (!firebaseUser) {
+      setProfile(null);
+      return;
+    }
+    return subscribeUserProfile(firebaseUser.uid, setProfile);
   }, [firebaseUser]);
 
   const isLoggedIn = isFirebaseConfigured ? Boolean(firebaseUser) : isDemoLoggedIn;
@@ -100,16 +111,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, [isLoggedIn]);
 
+  // Real count of reviews this account actually posted (matched by authorUid), instead of a
+  // local counter that reset on every reload. Demo mode (no real backend) keeps its own counter
+  // since there's no account to match reviews against.
+  const reviewsPosted = useMemo(() => {
+    if (!isFirebaseConfigured || !firebaseUser) return demoReviewsPosted;
+    return spots.reduce(
+      (sum, spot) => sum + spot.reviews.filter((r) => r.authorUid === firebaseUser.uid).length,
+      0
+    );
+  }, [spots, firebaseUser, demoReviewsPosted]);
+
   const rank = isPremium ? 'Premium' : rankForCount(reviewsPosted);
 
   const user: CurrentUser = useMemo(
     () => ({
+      uid: firebaseUser?.uid ?? null,
       name: firebaseUser?.displayName || firebaseUser?.email || 'Toi',
       reviewsPosted,
       rank,
       isPremium,
+      photoUrl: profile?.photoUrl,
     }),
-    [firebaseUser, reviewsPosted, rank, isPremium]
+    [firebaseUser, reviewsPosted, rank, isPremium, profile]
   );
 
   const addReview: AppContextValue['addReview'] = async (spotId, review) => {
@@ -117,7 +141,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     if (isFirebaseConfigured) {
       await addReviewToFirestore(spotId, reviewWithRank);
-      // spots state updates via the onSnapshot listener once Firestore confirms the write.
+      // spots state + reviewsPosted update via the onSnapshot listener once Firestore confirms the write.
     } else {
       setSpots((prev) =>
         prev.map((spot) =>
@@ -140,8 +164,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             : spot
         )
       );
+      setDemoReviewsPosted((n) => n + 1);
     }
-    setReviewsPosted((n) => n + 1);
   };
 
   const value: AppContextValue = {
@@ -191,6 +215,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const body = await res.json().catch(() => ({}) as { error?: string });
         throw new Error(body.error || 'Échec de la suppression du compte.');
       }
+    },
+    updateProfilePhoto: async (dataUrl) => {
+      if (!firebaseUser) {
+        throw new Error('Non authentifié.');
+      }
+      await updateUserProfile(firebaseUser.uid, { photoUrl: dataUrl });
     },
   };
 

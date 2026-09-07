@@ -1,81 +1,27 @@
-import React, { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useApp } from '../context/AppContext';
-import { colors, radius, shadow, spacing, typography } from '../theme/theme';
+import { spacing } from '../theme/theme';
 import { RankBadge } from './RankBadge';
+import type { RootStackParamList } from '../navigation/types';
 
 export function HeaderProfile() {
-  const { user, setPremium, isPremium, logout } = useApp();
-  const [visible, setVisible] = useState(false);
+  const { user } = useApp();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   return (
-    <>
-      <Pressable onPress={() => setVisible(true)} style={styles.chip}>
+    <Pressable onPress={() => navigation.navigate('Profile')} style={styles.chip}>
+      {user.photoUrl && <Image source={{ uri: user.photoUrl }} style={styles.avatar} />}
+      <View>
         <RankBadge rank={user.rank} small />
-      </Pressable>
-      <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setVisible(false)}>
-          <View style={styles.card}>
-            <Text style={styles.title}>{user.name}</Text>
-            <RankBadge rank={user.rank} />
-            <Text style={styles.stat}>{user.reviewsPosted} avis publiés</Text>
-            {!isPremium ? (
-              <View style={styles.premiumBox}>
-                <Text style={styles.premiumTitle}>👑 Passe Premium</Text>
-                <Text style={styles.premiumBody}>
-                  Avis illimités, badges exclusifs, stats avancées. 4,99 €/mois ou 49,99 €/an.
-                </Text>
-                <Pressable style={styles.premiumBtn} onPress={() => setPremium(true)}>
-                  <Text style={styles.premiumBtnText}>Devenir Premium</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <Text style={styles.premiumActive}>👑 Tu es déjà Premium, merci grailleur !</Text>
-            )}
-            <Pressable
-              onPress={() => {
-                setVisible(false);
-                logout();
-              }}
-            >
-              <Text style={styles.logout}>Se déconnecter</Text>
-            </Pressable>
-            <Pressable onPress={() => setVisible(false)}>
-              <Text style={styles.close}>Fermer</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
-    </>
+      </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  chip: { marginRight: spacing.md },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    width: '85%',
-    alignItems: 'center',
-    gap: spacing.sm,
-    ...shadow.card,
-  },
-  title: { ...typography.h3, color: colors.text },
-  stat: { ...typography.small, color: colors.textLight },
-  premiumBox: {
-    backgroundColor: `${colors.premium}1A`,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    width: '100%',
-    marginTop: spacing.sm,
-  },
-  premiumTitle: { fontWeight: '800', color: colors.text, marginBottom: 4 },
-  premiumBody: { fontSize: 12, color: colors.textLight, marginBottom: spacing.sm, lineHeight: 17 },
-  premiumBtn: { backgroundColor: colors.premium, borderRadius: radius.pill, paddingVertical: 10, alignItems: 'center' },
-  premiumBtnText: { fontWeight: '800', color: colors.secondary },
-  premiumActive: { color: colors.success, fontWeight: '700', marginTop: spacing.sm },
-  logout: { color: colors.primaryDark, fontWeight: '700', marginTop: spacing.md },
-  close: { color: colors.textLight, fontWeight: '600', marginTop: spacing.sm },
+  chip: { marginRight: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  avatar: { width: 24, height: 24, borderRadius: 12 },
 });

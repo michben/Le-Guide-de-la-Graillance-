@@ -23,6 +23,7 @@ export interface Review {
   dishPhoto: boolean;
   ticketPhotoUrl?: string;
   dishPhotoUrl?: string;
+  ticketAmount?: string;
   date: string;
 }
 
@@ -44,8 +45,10 @@ export interface Spot {
 }
 
 export interface CurrentUser {
+  uid: string | null;
   name: string;
   reviewsPosted: number;
   rank: UserRank;
   isPremium: boolean;
+  photoUrl?: string;
 }

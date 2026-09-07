@@ -4,4 +4,5 @@ export type RootStackParamList = {
   Categories: undefined;
   MapList: undefined;
   SpotDetail: { spotId: string };
+  Profile: undefined;
 };
