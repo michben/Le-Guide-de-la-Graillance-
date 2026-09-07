@@ -13,16 +13,22 @@ MVP mobile (Expo / React Native, iOS + Android + Web) construit autour de 5 écr
    le message d'accueil « Ici, on graille vrai. »
 2. **Localisation** (`src/screens/LocationScreen.tsx`) — géolocalisation GPS (`expo-location`) ou
    saisie manuelle d'adresse.
-3. **Catégories** (`src/screens/CategoriesScreen.tsx`) — grille Pizza / Kebab / Sushi / Burger /
-   Halal / Tacos / Poulet / Asiatique, ou "montre-moi tout".
+3. **Catégories** (`src/screens/CategoriesScreen.tsx`) — grille Tendance / Pizza / Kebab / Sushi /
+   Burger / Halal / Tacos / Poulet / Asiatique, ou "montre-moi tout". **Tendance** n'est pas une
+   catégorie stockée sur les spots : c'est calculé automatiquement à partir de l'activité réelle
+   des utilisateurs (voir plus bas).
 4. **Carte + Liste** (`src/screens/MapListScreen.tsx`) — bascule carte/liste des spots à proximité,
    avec distance, note et badges (Halal, AVS, Achahada). La carte (`src/components/SpotsMap.tsx` /
    `.web.tsx`) est une vraie carte interactive OpenStreetMap/Leaflet — zoom, déplacement, un pin
    par spot à ses vraies coordonnées, popup avec bouton "Voir le spot" qui ouvre le détail. Aucune
    clé Google Maps ni compte de facturation requis.
 5. **Détail du spot + avis** (`src/screens/SpotDetailScreen.tsx`) — infos du spot, avis certifiés
-   (badge de preuve ticket + plat), et le bouton **« J'ai graillé ici »** qui ouvre le formulaire
-   d'avis : impossible de publier sans photo du ticket **et** photo du plat.
+   (photos du ticket et du plat visibles, montant du ticket lu automatiquement par OCR), et le
+   bouton **« J'ai graillé ici »** qui ouvre le formulaire d'avis : impossible de publier sans
+   photo du ticket **et** photo du plat.
+6. **Mon profil** (`src/screens/ProfileScreen.tsx`) — accessible en tapant le badge de rang dans
+   l'en-tête : photo de profil (modifiable), nom, rang, nombre réel d'avis publiés, offre Premium,
+   déconnexion.
 
 ## Fonctionnalités clés implémentées
 
@@ -41,11 +47,12 @@ MVP mobile (Expo / React Native, iOS + Android + Web) construit autour de 5 écr
   `expo-image-picker`).
 - **Badges utilisateurs / gamification** : Grailleur Bronze → Validateur (3+ avis) → Premium,
   visible dans l'en-tête de chaque écran (`src/components/RankBadge.tsx`,
-  `src/context/AppContext.tsx`).
+  `src/context/AppContext.tsx`) et calculé à partir du **vrai nombre d'avis Firestore** de ce
+  compte (pas un compteur local qui repartait de zéro à chaque rechargement).
 - **Certifications resto** : Halal, AVS, Achahada affichées en pastilles colorées
   (`src/components/BadgePill.tsx`).
-- **Simulation Premium** : modal accessible depuis l'en-tête, présente l'offre 4,99 €/mois ou
-  49,99 €/an (`src/components/HeaderProfile.tsx`).
+- **Simulation Premium** : accessible depuis "Mon profil", présente l'offre 4,99 €/mois ou
+  49,99 €/an (`src/screens/ProfileScreen.tsx`).
 
 ## Stack technique
 
@@ -121,8 +128,12 @@ config Firebase.
    puis publie. Ces règles : autorisent la lecture de `spots/*` à tout utilisateur connecté,
    n'autorisent la mise à jour que des champs `reviews`/`rating`/`reviewCount` pour un utilisateur
    normal (impossible de modifier le nom, l'adresse ou les badges d'un spot depuis l'app mobile),
-   et réservent la création/suppression/modification complète d'un spot aux comptes listés dans la
-   collection `admins` — utilisée par la console d'admin ci-dessous.
+   réservent la création/suppression/modification complète d'un spot aux comptes listés dans la
+   collection `admins` — utilisée par la console d'admin ci-dessous — et autorisent chaque
+   utilisateur à lire/écrire uniquement son propre document dans `users/{uid}` (photo de profil).
+   **Si tu avais déjà publié une version antérieure de ce fichier**, republie-le : la section
+   `users/{uid}` a été ajoutée pour le module Profil, sans elle la photo de profil échoue avec une
+   erreur de permission.
 3. Génère une clé de compte de service : **Paramètres du projet > Comptes de service > Générer une
    nouvelle clé privée**. Garde ce fichier JSON en dehors du repo (ne jamais le commiter).
 4. Charge les spots de démo dans Firestore :
@@ -153,9 +164,47 @@ la fiche du spot, avec un appui pour les voir en plein écran.
 Limite à connaître : un document Firestore ne peut pas dépasser 1 Mo. Avec deux photos compressées
 par avis, on reste large, mais si un jour tu remarques des avis "photo manquante", c'est le signe
 qu'il faut soit compresser plus fort (`MAX_WIDTH`/`JPEG_QUALITY` dans
-`src/utils/reviewPhoto.ts`), soit passer à un vrai service de stockage de fichiers (Firebase Storage
-plus tard, ou une alternative gratuite comme Cloudinary/Supabase Storage qui n'exigent pas de carte
-bancaire pour leur tier gratuit).
+`src/utils/imageCompression.ts`), soit passer à un vrai service de stockage de fichiers (Firebase
+Storage plus tard, ou une alternative gratuite comme Cloudinary/Supabase Storage qui n'exigent pas
+de carte bancaire pour leur tier gratuit).
+
+### Lecture automatique du montant du ticket (OCR)
+
+Un utilisateur pouvait envoyer n'importe quelle photo comme "preuve de ticket" — l'app ne
+vérifiait que la présence d'une photo, pas son contenu. Depuis, dès qu'une photo de ticket est
+choisie, elle est passée à l'OCR (**tesseract.js**, gratuit, aucune clé API) qui essaie de lire le
+montant total (mots-clés `TOTAL`/`TTC`/`A PAYER` + un nombre au format prix,
+`src/utils/extractTicketAmount.ts`). Le montant détecté s'affiche en clair sur l'avis publié
+("💶 Montant lu sur le ticket : 14,90 € TTC"), et pendant la saisie, l'admin/l'utilisateur voit
+immédiatement si rien n'a été détecté ("⚠️ Aucun montant trouvé... vérifie que la photo montre bien
+un ticket").
+
+**Important — ce que l'OCR fait et ne fait pas :** il lit du texte sur une image, il ne vérifie
+absolument pas que la photo est un vrai ticket de caisse (quelqu'un peut toujours prendre en photo
+un bout de papier avec "TOTAL TTC 12,00" écrit dessus). Combiné à l'affichage des photos en clair
+sur chaque avis (voir section précédente), ça donne au moins un signal visuel exploitable pour
+repérer les faux à l'œil — la détection automatique de fraude est un chantier bien plus lourd, hors
+scope ici.
+
+Deux implémentations selon la plateforme (mêmes limites de test que la carte OpenStreetMap : le
+sandbox de développement bloque les CDN externes, donc non testable en bout en bout ici, mais
+fonctionnera normalement pour un vrai utilisateur) :
+- **Web** (`src/components/TicketOcrRunner.web.tsx`) : tesseract.js tourne directement dans la
+  page (déjà un contexte navigateur complet).
+- **Natif** (`src/components/TicketOcrRunner.tsx`) : passe par une WebView cachée qui charge
+  tesseract.js depuis un CDN, même technique que la carte Leaflet (`utils/mapHtml.ts`) — le moteur
+  JS de React Native n'a pas de Canvas/WASM pour faire tourner tesseract.js directement.
+
+Si la lecture échoue (réseau coupé, CDN bloqué...), l'avis se publie quand même normalement, juste
+sans montant affiché — l'OCR n'est jamais bloquant.
+
+### Catégorie "Tendance" (automatique)
+
+Pas de curation manuelle : un spot devient "tendance" (`src/utils/trending.ts`) uniquement parce
+que des grailleurs le notent vraiment, en ce moment. Score = (nombre d'avis postés dans les 14
+derniers jours × 3) + nombre total d'avis. Un spot sans aucun avis n'apparaît jamais dans cette
+catégorie — c'est attendu sur une app toute neuve, l'onglet affichera "Pas encore de tendance..."
+jusqu'aux premiers vrais avis.
 
 ## Console d'administration (`admin/`)
 

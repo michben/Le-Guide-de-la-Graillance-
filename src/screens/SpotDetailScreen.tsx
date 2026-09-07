@@ -7,7 +7,9 @@ import { RankBadge } from '../components/RankBadge';
 import { GradientButton } from '../components/GradientButton';
 import { colors, radius, shadow, spacing, typography } from '../theme/theme';
 import { confirmAsync, notify } from '../utils/confirm';
-import { compressPhotoToDataUrl } from '../utils/reviewPhoto';
+import { compressPhotoToDataUrl } from '../utils/imageCompression';
+import { extractTicketAmount } from '../utils/extractTicketAmount';
+import { TicketOcrRunner } from '../components/TicketOcrRunner';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -140,6 +142,9 @@ export default function SpotDetailScreen({ route, navigation }: Props) {
                 )}
               </View>
             )}
+            {review.ticketAmount && (
+              <Text style={styles.ticketAmountText}>💶 Montant lu sur le ticket : {review.ticketAmount} € TTC</Text>
+            )}
             <Text style={styles.reviewDate}>{review.date}</Text>
             {isAdmin && (
               <View style={styles.adminReviewActions}>
@@ -172,7 +177,6 @@ export default function SpotDetailScreen({ route, navigation }: Props) {
           setModalVisible(false);
         }}
         userName={user.name}
-        spotId={spot.id}
       />
 
       <Modal visible={!!viewerUri} transparent animationType="fade" onRequestClose={() => setViewerUri(null)}>
@@ -193,12 +197,13 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+type OcrStatus = 'idle' | 'running' | 'done' | 'error';
+
 function ReviewModal({
   visible,
   onClose,
   onSubmit,
   userName,
-  spotId,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -210,9 +215,9 @@ function ReviewModal({
     dishPhoto: boolean;
     ticketPhotoUrl?: string;
     dishPhotoUrl?: string;
+    ticketAmount?: string;
   }) => Promise<void>;
   userName: string;
-  spotId: string;
 }) {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
@@ -220,6 +225,11 @@ function ReviewModal({
   const [dishUri, setDishUri] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ocrInputUrl, setOcrInputUrl] = useState<string | null>(null);
+  const [ocrStatus, setOcrStatus] = useState<OcrStatus>('idle');
+  const [ticketAmount, setTicketAmount] = useState<string | null>(null);
+  const ticketCompressRef = React.useRef<Promise<string> | null>(null);
+  const dishCompressRef = React.useRef<Promise<string> | null>(null);
 
   const reset = () => {
     setRating(5);
@@ -227,6 +237,11 @@ function ReviewModal({
     setTicketUri(null);
     setDishUri(null);
     setError(null);
+    setOcrInputUrl(null);
+    setOcrStatus('idle');
+    setTicketAmount(null);
+    ticketCompressRef.current = null;
+    dishCompressRef.current = null;
   };
 
   const pickPhoto = async (which: 'ticket' | 'dish') => {
@@ -234,9 +249,18 @@ function ReviewModal({
       mediaTypes: ['images'],
       quality: 0.5,
     });
-    if (!result.canceled) {
-      const uri = result.assets[0].uri;
-      which === 'ticket' ? setTicketUri(uri) : setDishUri(uri);
+    if (result.canceled) return;
+    const uri = result.assets[0].uri;
+    if (which === 'ticket') {
+      setTicketUri(uri);
+      setTicketAmount(null);
+      setOcrStatus('running');
+      const compressPromise = compressPhotoToDataUrl(uri);
+      ticketCompressRef.current = compressPromise;
+      compressPromise.then(setOcrInputUrl).catch(() => setOcrStatus('error'));
+    } else {
+      setDishUri(uri);
+      dishCompressRef.current = compressPhotoToDataUrl(uri);
     }
   };
 
@@ -293,6 +317,29 @@ function ReviewModal({
             </Pressable>
           </View>
 
+          {ticketUri && (
+            <Text style={styles.ocrStatus}>
+              {ocrStatus === 'running' && '🔎 Lecture du ticket...'}
+              {ocrStatus === 'done' &&
+                (ticketAmount
+                  ? `✅ Montant lu sur le ticket : ${ticketAmount} € TTC`
+                  : "⚠️ Aucun montant trouvé sur cette photo — vérifie qu'elle montre bien un ticket de caisse.")}
+              {ocrStatus === 'error' && '⚠️ Lecture impossible, la photo sera quand même envoyée.'}
+            </Text>
+          )}
+          <TicketOcrRunner
+            uri={ocrInputUrl}
+            onResult={(text) => {
+              setTicketAmount(extractTicketAmount(text));
+              setOcrStatus('done');
+              setOcrInputUrl(null);
+            }}
+            onError={() => {
+              setOcrStatus('error');
+              setOcrInputUrl(null);
+            }}
+          />
+
           {error && <Text style={styles.modalError}>{error}</Text>}
 
           <GradientButton
@@ -306,8 +353,8 @@ function ReviewModal({
                 let dishPhotoUrl: string | undefined;
                 try {
                   [ticketPhotoUrl, dishPhotoUrl] = await Promise.all([
-                    compressPhotoToDataUrl(ticketUri!),
-                    compressPhotoToDataUrl(dishUri!),
+                    ticketCompressRef.current ?? compressPhotoToDataUrl(ticketUri!),
+                    dishCompressRef.current ?? compressPhotoToDataUrl(dishUri!),
                   ]);
                 } catch {
                   // Compression failed for some reason — still publish the review with the
@@ -321,6 +368,7 @@ function ReviewModal({
                   dishPhoto: true,
                   ticketPhotoUrl,
                   dishPhotoUrl,
+                  ticketAmount: ticketAmount ?? undefined,
                 });
                 reset();
               } catch (e) {
@@ -391,6 +439,7 @@ const styles = StyleSheet.create({
   reviewPhotoRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
   reviewThumb: { width: 72, height: 72, borderRadius: radius.md, backgroundColor: colors.background },
   reviewThumbLabel: { fontSize: 10, color: colors.textLight, textAlign: 'center', marginTop: 2 },
+  ticketAmountText: { fontSize: 12, fontWeight: '700', color: colors.secondary, marginBottom: 6 },
   viewerBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.9)',
@@ -414,6 +463,7 @@ const styles = StyleSheet.create({
   modalTitle: { ...typography.h2, color: colors.text },
   modalSubtitle: { ...typography.small, color: colors.textLight, marginTop: 4, marginBottom: spacing.md },
   modalError: { color: colors.primaryDark, fontSize: 13, fontWeight: '600', marginBottom: spacing.sm },
+  ocrStatus: { fontSize: 12, fontWeight: '600', color: colors.textLight, marginBottom: spacing.sm },
   starsRow: { flexDirection: 'row', gap: 6, marginBottom: spacing.md },
   star: { fontSize: 28 },
   commentInput: {
